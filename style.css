@@ -1517,7 +1517,7 @@ html, body {
   /* Film grid — 3 kolom landscape, scroll */
   .film-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 6px;
     padding: 8px 8px 24px;
     overflow-y: scroll;
