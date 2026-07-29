@@ -2344,4 +2344,58 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const nameEl = document.getElementById('login-name');
   if (nameEl) {
-    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = d
+    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    nameEl.addEventListener('input', () => {
+      nameEl.classList.remove('input-error');
+      document.getElementById('login-error').classList.remove('show');
+      document.getElementById('password-section').style.display = 'none';
+      document.getElementById('admin-detected').style.display   = 'none';
+      document.getElementById('btn-text').textContent = 'Masuk & Mulai Nonton';
+      const btn = document.getElementById('btn-login');
+      if (btn) { btn.dataset.mode = 'check'; delete btn.dataset.adminName; }
+    });
+  }
+
+  const passEl = document.getElementById('login-pass');
+  if (passEl) {
+    passEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    passEl.addEventListener('input', () => { passEl.classList.remove('input-error'); document.getElementById('login-error').classList.remove('show'); });
+  }
+});
+
+// ================================================================
+// BUG FIX #1 — Bedakan REFRESH vs CLOSE TAB
+// Masalah: beforeunload selalu kirim /api/logout via sendBeacon
+// saat refresh → token dihapus server → sesi hilang → kamera
+// minta izin ulang di mobile. Solusi: pakai flag sessionStorage
+// 'lb_refreshing'. Jika flag ada saat load = refresh, skip logout.
+// ================================================================
+window.addEventListener('beforeunload', () => {
+  // Tandai sebagai refresh agar restoreSession tahu ini bukan close tab
+  if (authToken && currentUser && currentUser.role === 'viewer') {
+    sessionStorage.setItem('lb_refreshing', '1');
+    // BUG FIX #3: simpan sessionId lama agar bisa di-reuse setelah refresh
+    if (mySessionId) sessionStorage.setItem('lb_session_id', mySessionId);
+  }
+
+  // Tutup WebRTC peers agar resource dibebaskan
+  viewerPeers.forEach(pc => { try { pc.close(); } catch {} });
+  adminPeers.forEach(e  => { try { e.pc.close(); } catch {} });
+
+  // Cabut listener disconnect dulu agar tidak trigger log ganda
+  if (socket) { socket.off('disconnect'); socket.disconnect(); }
+
+  // JANGAN stop camStream di sini — browser mobile akan minta izin kamera lagi
+  // JANGAN sendBeacon logout untuk viewer — sesi harus tetap hidup untuk restore
+  // Admin tidak punya sesi kamera, tetap logout normal
+  if (!currentUser || currentUser.role !== 'viewer') {
+    if (authToken) navigator.sendBeacon(`${API_BASE}/api/logout`, '{}');
+  }
+});
+
+
+window.addEventListener('pagehide', () => {
+  // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
+  // stream bisa di-reuse langsung tanpa request izin ulang
+});
+
