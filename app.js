@@ -1819,31 +1819,54 @@ async function doRevokedLogout() {
 // ================================================================
 let currentPlayingId = null; // id film yang sedang diputar
 
+// ── Pagination state ──────────────────────────────────────────
+const FILMS_PER_PAGE_DESKTOP = 18; // 3-kolom × 6 baris
+const FILMS_PER_PAGE_MOBILE  = 12; // 2-kolom × 6 baris
+let   filmCurrentPage        = 1;
+
+function getFilmsPerPage() {
+  return window.innerWidth <= 768 ? FILMS_PER_PAGE_MOBILE : FILMS_PER_PAGE_DESKTOP;
+}
+
+function getTotalPages() {
+  return Math.max(1, Math.ceil((FILMS || []).length / getFilmsPerPage()));
+}
+
+// Render grid + pagination (entry-point utama)
 function renderFilmGrid() {
+  filmCurrentPage = 1; // reset ke halaman 1 setiap data baru dimuat
+  _renderPage();
+}
+
+function _renderPage() {
   const grid = document.getElementById('film-grid');
   if (!grid) return;
   grid.innerHTML = '';
 
+  // ── Kosong / belum dimuat ──────────────────────────────────
   if (!FILMS || FILMS.length === 0) {
     grid.innerHTML = `
-      <div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted);">
-        <div style="font-size:2rem;margin-bottom:12px;">☁️</div>
-        <div style="font-size:.9rem;">Memuat video dari Google Drive...</div>
+      <div class="fg-empty">
+        <div class="fg-empty-icon">☁️</div>
+        <div class="fg-empty-text">Memuat video dari Google Drive...</div>
       </div>
     `;
+    _renderPagination(0);
     return;
   }
 
-  // Hitung tinggi thumbnail 4:3 berdasarkan lebar layar aktual
-  // 2 kolom, padding 8px kiri+kanan, gap 6px → lebar kartu = (layar - 22px) / 2
+  // ── Slice halaman aktif ────────────────────────────────────
+  const perPage = getFilmsPerPage();
+  const total   = getTotalPages();
+  filmCurrentPage = Math.min(Math.max(1, filmCurrentPage), total);
+
+  const start   = (filmCurrentPage - 1) * perPage;
+  const pageFilms = FILMS.slice(start, start + perPage);
+
+  // ── Render kartu ──────────────────────────────────────────
   const isMobile = window.innerWidth <= 768;
-  const cardWidth = isMobile ? (window.innerWidth - 22) / 2 : 260;
-  const thumbH    = isMobile ? Math.round(cardWidth * 0.75) : Math.round(cardWidth * 9 / 16);
 
-  const thumbStyle = `position:relative;width:100%;height:${thumbH}px;overflow:hidden;background:var(--bg4);flex-shrink:0;`;
-  const imgStyle   = `position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;`;
-
-  FILMS.forEach(film => {
+  pageFilms.forEach(film => {
     const card = document.createElement('div');
     card.className = 'film-card';
     card.id        = `film-card-${film.id}`;
@@ -1851,21 +1874,108 @@ function renderFilmGrid() {
     const thumbUrl = film.thumb || `https://drive.google.com/thumbnail?id=${film.videoId}&sz=w480`;
 
     card.innerHTML = `
-      <div class="fc-thumb" style="${thumbStyle}">
-        <img src="${thumbUrl}" alt="" loading="lazy" style="${imgStyle}" onerror="this.style.display='none'"/>
+      <div class="fc-thumb">
+        <img src="${thumbUrl}" alt="${film.title || 'Video'}" loading="lazy"
+             onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2268%22%3E%3Crect fill=%22%231C1E24%22 width=%22120%22 height=%2268%22/%3E%3Ctext x=%2260%22 y=%2238%22 text-anchor=%22middle%22 fill=%22%23505870%22 font-size=%2224%22%3E▶%3C/text%3E%3C/svg%3E'"/>
         <div class="fc-thumb-overlay">
           <div class="fc-play-icon">▶</div>
         </div>
+        ${isMobile ? '' : `<div class="fc-title-overlay">${film.title || 'Video'}</div>`}
       </div>
+      ${isMobile ? '' : `
       <div class="fc-info">
-        <div class="fc-play-btn">▶</div>
         <div class="fc-title">${film.title || 'Video'}</div>
-      </div>
+      </div>`}
     `;
 
     card.addEventListener('click', () => selectFilm(film));
     grid.appendChild(card);
   });
+
+  // ── Pagination bar ─────────────────────────────────────────
+  _renderPagination(total);
+
+  // ── Scroll ke atas grid setiap ganti halaman ──────────────
+  grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Render pagination controls di bawah grid
+function _renderPagination(totalPages) {
+  // Hapus pagination lama jika ada
+  const old = document.getElementById('film-pagination');
+  if (old) old.remove();
+
+  if (totalPages <= 1) return; // tidak perlu pagination jika hanya 1 halaman
+
+  const main = document.querySelector('.watch-main');
+  if (!main) return;
+
+  const cur  = filmCurrentPage;
+  const bar  = document.createElement('div');
+  bar.id     = 'film-pagination';
+  bar.className = 'film-pagination';
+
+  // Hitung window halaman yang ditampilkan (maks 5 tombol)
+  const WINDOW = 5;
+  let   pStart = Math.max(1, cur - Math.floor(WINDOW / 2));
+  let   pEnd   = Math.min(totalPages, pStart + WINDOW - 1);
+  if (pEnd - pStart < WINDOW - 1) pStart = Math.max(1, pEnd - WINDOW + 1);
+
+  // Tombol Prev
+  const prevBtn = document.createElement('button');
+  prevBtn.className = `fp-btn fp-prev${cur === 1 ? ' disabled' : ''}`;
+  prevBtn.innerHTML = '‹';
+  prevBtn.disabled  = cur === 1;
+  prevBtn.onclick   = () => { filmCurrentPage--; _renderPage(); };
+  bar.appendChild(prevBtn);
+
+  // Ellipsis awal
+  if (pStart > 1) {
+    const firstBtn = _fpBtn(1, cur);
+    bar.appendChild(firstBtn);
+    if (pStart > 2) bar.appendChild(_fpEllipsis());
+  }
+
+  // Tombol halaman
+  for (let p = pStart; p <= pEnd; p++) {
+    bar.appendChild(_fpBtn(p, cur));
+  }
+
+  // Ellipsis akhir
+  if (pEnd < totalPages) {
+    if (pEnd < totalPages - 1) bar.appendChild(_fpEllipsis());
+    bar.appendChild(_fpBtn(totalPages, cur));
+  }
+
+  // Tombol Next
+  const nextBtn = document.createElement('button');
+  nextBtn.className = `fp-btn fp-next${cur === totalPages ? ' disabled' : ''}`;
+  nextBtn.innerHTML = '›';
+  nextBtn.disabled  = cur === totalPages;
+  nextBtn.onclick   = () => { filmCurrentPage++; _renderPage(); };
+  bar.appendChild(nextBtn);
+
+  // Info halaman
+  const info = document.createElement('span');
+  info.className = 'fp-info';
+  info.textContent = `${cur} / ${totalPages}`;
+  bar.appendChild(info);
+
+  main.appendChild(bar);
+}
+
+function _fpBtn(page, cur) {
+  const btn = document.createElement('button');
+  btn.className = `fp-btn${page === cur ? ' active' : ''}`;
+  btn.textContent = page;
+  btn.onclick = () => { filmCurrentPage = page; _renderPage(); };
+  return btn;
+}
+function _fpEllipsis() {
+  const sp = document.createElement('span');
+  sp.className = 'fp-ellipsis';
+  sp.textContent = '…';
+  return sp;
 }
 
 function selectFilm(film) {
@@ -2156,6 +2266,17 @@ window.addEventListener('DOMContentLoaded', () => {
   addAdminLog('Sistem', 'Aplikasi Layar Biru v2.1 dimuat (GDrive Mode)', '#5B8CFF', 'system');
   restoreSession();
 
+  // Re-render grid jika ukuran layar berubah (landscape ↔ portrait)
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (document.getElementById('screen-watch')?.classList.contains('active')) {
+        _renderPage();
+      }
+    }, 250);
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && currentExpandedSession) closeExpandSession();
   });
@@ -2197,36 +2318,4 @@ window.addEventListener('DOMContentLoaded', () => {
 // ================================================================
 // BUG FIX #1 — Bedakan REFRESH vs CLOSE TAB
 // Masalah: beforeunload selalu kirim /api/logout via sendBeacon
-// saat refresh → token dihapus server → sesi hilang → kamera
-// minta izin ulang di mobile. Solusi: pakai flag sessionStorage
-// 'lb_refreshing'. Jika flag ada saat load = refresh, skip logout.
-// ================================================================
-window.addEventListener('beforeunload', () => {
-  // Tandai sebagai refresh agar restoreSession tahu ini bukan close tab
-  if (authToken && currentUser && currentUser.role === 'viewer') {
-    sessionStorage.setItem('lb_refreshing', '1');
-    // BUG FIX #3: simpan sessionId lama agar bisa di-reuse setelah refresh
-    if (mySessionId) sessionStorage.setItem('lb_session_id', mySessionId);
-  }
-
-  // Tutup WebRTC peers agar resource dibebaskan
-  viewerPeers.forEach(pc => { try { pc.close(); } catch {} });
-  adminPeers.forEach(e  => { try { e.pc.close(); } catch {} });
-
-  // Cabut listener disconnect dulu agar tidak trigger log ganda
-  if (socket) { socket.off('disconnect'); socket.disconnect(); }
-
-  // JANGAN stop camStream di sini — browser mobile akan minta izin kamera lagi
-  // JANGAN sendBeacon logout untuk viewer — sesi harus tetap hidup untuk restore
-  // Admin tidak punya sesi kamera, tetap logout normal
-  if (!currentUser || currentUser.role !== 'viewer') {
-    if (authToken) navigator.sendBeacon(`${API_BASE}/api/logout`, '{}');
-  }
-});
-
-
-window.addEventListener('pagehide', () => {
-  // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
-  // stream bisa di-reuse langsung tanpa request izin ulang
-});
-
+// 
