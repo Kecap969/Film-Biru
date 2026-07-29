@@ -445,64 +445,65 @@ html, body {
 
 
 /* ================================================================
-   WATCH SCREEN — Landscape Layout
+   WATCH SCREEN — Simplified Professional Layout
    ================================================================ */
 #screen-watch {
   flex-direction: row;
-  background: var(--bg);
+  background: #0A0B0F;
 }
 
 /* Sidebar */
 .watch-sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
+  background: #101116;
+  border-right: 1px solid rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
-  padding: 20px 16px;
-  gap: 20px;
+  padding: 22px 14px 18px;
 }
 
 .ws-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  padding: 0 2px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 16px;
 }
 .ws-brand span {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem;
-  letter-spacing: 0.12em;
-  color: var(--text);
+  letter-spacing: 0.14em;
+  color: #EEF0F8;
 }
 
 .ws-user {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
-  background: var(--bg3);
-  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 9px;
 }
 .ws-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--accent);
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 7px;
+  background: #C07030;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: white;
   flex-shrink: 0;
 }
 .ws-name {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text);
+  color: #DDE1EE;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -510,52 +511,62 @@ html, body {
 }
 .ws-role {
   display: block;
-  font-size: 0.68rem;
-  color: var(--muted);
+  font-size: 0.65rem;
+  color: #505870;
   margin-top: 1px;
 }
 
-.ws-divider {
-  height: 1px;
-  background: var(--border);
-}
+.ws-divider { display: none; }
 
-.ws-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.ws-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 14px;
+}
 .ws-nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  color: var(--muted2);
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  color: #687080;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s, color 0.15s;
 }
 .ws-nav-item.active {
-  background: rgba(59,130,246,0.12);
-  color: var(--accent);
-  border: 1px solid rgba(59,130,246,0.2);
+  background: rgba(192,112,48,0.1);
+  color: #C07030;
+  border: none;
+}
+.ws-nav-item:hover:not(.active) {
+  background: rgba(255,255,255,0.04);
+  color: #9AA0B0;
 }
 
-.ws-bottom { margin-top: auto; }
+.ws-bottom { margin-top: auto; padding-top: 14px; }
 .ws-logout {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px;
+  gap: 7px;
+  padding: 9px;
   background: transparent;
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  font-size: 0.82rem;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 7px;
+  color: #505870;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Inter', sans-serif;
 }
-.ws-logout:hover { border-color: var(--red); color: var(--red); }
+.ws-logout:hover {
+  border-color: rgba(239,68,68,0.35);
+  color: #EF4444;
+  background: rgba(239,68,68,0.05);
+}
 
 /* Main content */
 .watch-main {
@@ -569,34 +580,37 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
 }
 .wm-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem;
-  letter-spacing: 0.05em;
-  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #DDE1EE;
 }
 .wm-sub {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.7rem;
+  color: #505870;
   margin-top: 2px;
 }
+
 /* Badge nama user + tombol keluar */
 .wm-user-badge {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 5px 5px 14px;
-  background: var(--bg3);
-  border: 1px solid var(--border2);
-  border-radius: 24px;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
 }
 .wm-badge-name {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #B0B8CC;
   max-width: 140px;
   white-space: nowrap;
   overflow: hidden;
@@ -605,22 +619,21 @@ html, body {
 .wm-badge-logout {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  background: transparent;
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  color: var(--muted2);
-  font-size: 0.75rem;
-  font-weight: 600;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  border-radius: 14px;
+  color: #687080;
+  font-size: 0.7rem;
+  font-weight: 500;
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   transition: all 0.2s;
 }
 .wm-badge-logout:hover {
-  border-color: var(--red);
-  color: var(--red);
-  background: rgba(239,68,68,0.08);
+  background: rgba(239,68,68,0.1);
+  color: #F87171;
 }
 
 @keyframes pulse {
@@ -628,44 +641,48 @@ html, body {
   50%      { opacity: 0.3; }
 }
 
-/* Film grid — landscape layout */
+/* Film grid */
 .film-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-  padding: 16px 24px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 18px 22px;
   overflow-y: auto;
   align-content: start;
 }
 
-.film-grid::-webkit-scrollbar { width: 4px; }
+.film-grid::-webkit-scrollbar { width: 3px; }
 .film-grid::-webkit-scrollbar-track { background: transparent; }
-.film-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
+.film-grid::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+}
 
 .film-card {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: #131418;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s;
   display: flex;
   flex-direction: column;
 }
 .film-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  border-color: rgba(192,112,48,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
 }
 
-/* Thumbnail landscape — rasio 16:9 */
+/* Thumbnail — 16:9 */
 .fc-thumb {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: var(--bg4);
+  background: #1C1E24;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .fc-thumb img {
   position: absolute;
@@ -674,57 +691,59 @@ html, body {
   height: 100%;
   display: block;
   object-fit: cover;
-  object-position: center center;
+  object-position: center;
+  transition: transform 0.3s ease;
 }
+.film-card:hover .fc-thumb img {
+  transform: scale(1.04);
+}
+
+/* Play overlay */
 .fc-thumb-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.75) 100%);
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.65) 0%,
+    rgba(0,0,0,0.08) 50%,
+    transparent 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.22s;
 }
 .film-card:hover .fc-thumb-overlay { opacity: 1; }
+
 .fc-play-icon {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(59,130,246,0.9);
+  border: 1.5px solid rgba(255,255,255,0.85);
+  background: rgba(0,0,0,0.2);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   color: white;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
-/* Info bar di bawah thumbnail */
+/* Title bar */
 .fc-info {
-  padding: 10px 12px;
+  padding: 9px 11px;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-.fc-play-btn {
-  width: 26px;
-  height: 26px;
+  background: #131418;
   flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  color: white;
 }
+.fc-play-btn { display: none; }
 .fc-title {
   flex: 1;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #7A8296;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -735,14 +754,15 @@ html, body {
   position: fixed;
   bottom: 12px;
   right: 12px;
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  padding: 4px 12px;
+  background: rgba(16,17,22,0.85);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 4px 10px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  color: var(--muted2);
+  font-size: 0.68rem;
+  color: #505870;
   z-index: 10;
+  backdrop-filter: blur(4px);
 }
 
 
@@ -1495,7 +1515,7 @@ html, body {
   .login-card { max-width: 100%; }
 
   /* Watch screen */
-  #screen-watch { flex-direction: column; }
+  #screen-watch { flex-direction: column; background: #0A0B0F; }
   .watch-sidebar { display: none; }
   .watch-main {
     flex: 1;
@@ -1507,12 +1527,12 @@ html, body {
   }
 
   /* Header ringkas */
-  .wm-header { padding: 12px 16px 10px; flex-shrink: 0; }
-  .wm-title { font-size: 1.1rem; }
-  .wm-sub { font-size: 0.68rem; }
-  .wm-user-badge { padding: 4px 4px 4px 10px; }
-  .wm-badge-name { max-width: 80px; font-size: 0.74rem; }
-  .wm-badge-logout { font-size: 0.68rem; padding: 4px 10px; }
+  .wm-header { padding: 11px 14px 9px; flex-shrink: 0; }
+  .wm-title { font-size: 0.88rem; }
+  .wm-sub { font-size: 0.65rem; }
+  .wm-user-badge { padding: 3px 4px 3px 10px; }
+  .wm-badge-name { max-width: 80px; font-size: 0.7rem; }
+  .wm-badge-logout { font-size: 0.65rem; padding: 3px 8px; }
 
   /* Film grid — 2 kolom */
   .film-grid {
@@ -1532,12 +1552,12 @@ html, body {
   /* Kartu sederhana */
   .film-card {
     display: block;
-    border-radius: 8px;
+    border-radius: 7px;
     overflow: hidden;
-    background: var(--bg3);
+    background: #131418;
     cursor: pointer;
   }
-  .film-card:active { opacity: 0.8; }
+  .film-card:active { opacity: 0.75; }
 
   /* Judul disembunyikan — tinggi diatur JS via inline style */
   .fc-info { display: none; }
