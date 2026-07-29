@@ -1834,32 +1834,36 @@ function renderFilmGrid() {
     return;
   }
 
+  // Hitung tinggi thumbnail 4:3 berdasarkan lebar layar aktual
+  // 2 kolom, padding 8px kiri+kanan, gap 6px → lebar kartu = (layar - 22px) / 2
+  const isMobile = window.innerWidth <= 768;
+  const cardWidth = isMobile ? (window.innerWidth - 22) / 2 : 260;
+  const thumbH    = isMobile ? Math.round(cardWidth * 0.75) : Math.round(cardWidth * 9 / 16);
+
+  const thumbStyle = `position:relative;width:100%;height:${thumbH}px;overflow:hidden;background:var(--bg4);flex-shrink:0;`;
+  const imgStyle   = `position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;`;
+
   FILMS.forEach(film => {
     const card = document.createElement('div');
     card.className = 'film-card';
     card.id        = `film-card-${film.id}`;
 
-    // Thumbnail — portrait 9:16
     const thumbUrl = film.thumb || `https://drive.google.com/thumbnail?id=${film.videoId}&sz=w480`;
 
     card.innerHTML = `
-      <!-- Thumbnail landscape -->
-      <div class="fc-thumb">
-        <img src="${thumbUrl}" alt="" loading="lazy" onerror="this.style.display='none'"/>
+      <div class="fc-thumb" style="${thumbStyle}">
+        <img src="${thumbUrl}" alt="" loading="lazy" style="${imgStyle}" onerror="this.style.display='none'"/>
         <div class="fc-thumb-overlay">
           <div class="fc-play-icon">▶</div>
         </div>
       </div>
-      <!-- Info bar -->
       <div class="fc-info">
         <div class="fc-play-btn">▶</div>
         <div class="fc-title">${film.title || 'Video'}</div>
       </div>
     `;
 
-    // Klik thumbnail → buka fullscreen modal
     card.addEventListener('click', () => selectFilm(film));
-
     grid.appendChild(card);
   });
 }
