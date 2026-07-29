@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Film Biru — Nonton Film 18+</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <link rel="icon" type="image/png" href="/logo.png"/>
-  <link rel="apple-touch-icon" href="/logo.png"/>
   <link rel="stylesheet" href="/style.css?v=9"/>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
@@ -24,7 +22,6 @@
     <!-- Sisi kiri: branding -->
     <div class="login-left">
       <div class="brand-logo">
-        <img src="/logo.png" alt="FilmBiru" class="brand-img"/>
         <span class="brand-name">FILM<span class="brand-accent">BIRU</span></span>
       </div>
       <div class="login-hero-text">
@@ -139,7 +136,6 @@
   <!-- Sidebar kiri -->
   <aside class="watch-sidebar">
     <div class="ws-brand">
-      <img src="/logo.png" alt="FilmBiru" class="sidebar-logo"/>
       <span>FILMBIRU</span>
     </div>
     <div class="ws-user">
@@ -157,7 +153,7 @@
     </nav>
     <div class="ws-bottom">
       <button class="ws-logout" onclick="endSession()">
-        <span>⏻</span> Keluar
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Keluar
       </button>
     </div>
   </aside>
@@ -165,13 +161,16 @@
   <!-- Konten utama -->
   <main class="watch-main">
     <div class="wm-header">
-      <div>
-        <h2 class="wm-title">Pilih Video</h2>
-        <p class="wm-sub">Pilih video untuk mulai menonton</p>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img src="/logo.png" alt="Film Biru" style="height:40px;width:auto;object-fit:contain;"/>
+        <div>
+          <h2 class="wm-title">Film Biru</h2>
+          <p class="wm-sub">Pilih video untuk mulai menonton</p>
+        </div>
       </div>
       <div class="wm-user-badge">
         <span class="wm-badge-name" id="wm-badge-name">User</span>
-        <button class="wm-badge-logout" onclick="endSession()">⏻ Keluar</button>
+        <button class="wm-badge-logout" onclick="endSession()"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Keluar</button>
       </div>
     </div>
     <div class="film-grid" id="film-grid"></div>
@@ -187,7 +186,6 @@
   <!-- Sidebar admin -->
   <aside class="admin-sidebar">
     <div class="as-brand">
-      <img src="/logo.png" alt="FilmBiru" class="sidebar-logo"/>
       <span>FILMBIRU</span>
     </div>
 
@@ -219,7 +217,7 @@
 
     <div class="as-bottom">
       <div class="as-username" id="admin-username">Admin</div>
-      <button class="as-logout" onclick="adminLogout()">⏻ Logout</button>
+      <button class="as-logout" onclick="adminLogout()"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Logout</button>
     </div>
   </aside>
 
@@ -228,9 +226,10 @@
     <!-- Header -->
     <div class="ac-header">
       <h2>Monitor Dashboard</h2>
-      <button class="ac-logout-btn" onclick="adminLogout()">
-        <span>⏻</span> Logout
-      </button>
+      <div class="ac-live">
+        <div class="rec-dot"></div>
+        <span>LIVE</span>
+      </div>
     </div>
 
     <!-- Grid sesi pengguna -->
