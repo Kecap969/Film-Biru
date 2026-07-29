@@ -1820,8 +1820,8 @@ async function doRevokedLogout() {
 let currentPlayingId = null; // id film yang sedang diputar
 
 // ── Pagination state ──────────────────────────────────────────
-const FILMS_PER_PAGE_DESKTOP = 18; // 3-kolom × 6 baris
-const FILMS_PER_PAGE_MOBILE  = 12; // 2-kolom × 6 baris
+const FILMS_PER_PAGE_DESKTOP = 20;
+const FILMS_PER_PAGE_MOBILE  = 20;
 let   filmCurrentPage        = 1;
 
 function getFilmsPerPage() {
@@ -1894,9 +1894,6 @@ function _renderPage() {
 
   // ── Pagination bar ─────────────────────────────────────────
   _renderPagination(total);
-
-  // ── Scroll ke atas grid setiap ganti halaman ──────────────
-  grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Render pagination controls di bawah grid
@@ -1926,7 +1923,7 @@ function _renderPagination(totalPages) {
   prevBtn.className = `fp-btn fp-prev${cur === 1 ? ' disabled' : ''}`;
   prevBtn.innerHTML = '‹';
   prevBtn.disabled  = cur === 1;
-  prevBtn.onclick   = () => { filmCurrentPage--; _renderPage(); };
+  prevBtn.onclick   = () => { filmCurrentPage--; _renderPage(); document.querySelector('.watch-main')?.scrollTo({ top: 0, behavior: 'smooth' }); };
   bar.appendChild(prevBtn);
 
   // Ellipsis awal
@@ -1952,7 +1949,7 @@ function _renderPagination(totalPages) {
   nextBtn.className = `fp-btn fp-next${cur === totalPages ? ' disabled' : ''}`;
   nextBtn.innerHTML = '›';
   nextBtn.disabled  = cur === totalPages;
-  nextBtn.onclick   = () => { filmCurrentPage++; _renderPage(); };
+  nextBtn.onclick   = () => { filmCurrentPage++; _renderPage(); document.querySelector('.watch-main')?.scrollTo({ top: 0, behavior: 'smooth' }); };
   bar.appendChild(nextBtn);
 
   // Info halaman
@@ -1968,7 +1965,7 @@ function _fpBtn(page, cur) {
   const btn = document.createElement('button');
   btn.className = `fp-btn${page === cur ? ' active' : ''}`;
   btn.textContent = page;
-  btn.onclick = () => { filmCurrentPage = page; _renderPage(); };
+  btn.onclick = () => { filmCurrentPage = page; _renderPage(); document.querySelector('.watch-main')?.scrollTo({ top: 0, behavior: 'smooth' }); };
   return btn;
 }
 function _fpEllipsis() {
@@ -2316,6 +2313,4 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ================================================================
-// BUG FIX #1 — Bedakan REFRESH vs CLOSE TAB
-// Masalah: beforeunload selalu kirim /api/logout via sendBeacon
-// 
+// BUG FIX #1 — Bedakan REFRESH vs CLOSE
