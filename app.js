@@ -146,11 +146,19 @@ async function doLogin(name, password) {
   if (passEl) passEl.classList.remove('input-error');
   document.getElementById('login-error').classList.remove('show');
 
-  if (!finalName) { showLoginError('Nama wajib diisi.', nameEl); return; }
+  if (!finalName) {
+    showLoginError('Nama wajib diisi.', nameEl);
+    btnEl.disabled = false;
+    isLoggingIn = false;
+    return;
+  }
 
   const passSection = document.getElementById('password-section');
   if (passSection.style.display !== 'none' && !finalPass) {
-    showLoginError('Password wajib diisi.', passEl); return;
+    showLoginError('Password wajib diisi.', passEl);
+    btnEl.disabled = false;
+    isLoggingIn = false;
+    return;
   }
 
   btnEl.disabled = true;
@@ -2336,5 +2344,4 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const nameEl = document.getElementById('login-name');
   if (nameEl) {
-    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
-    nameEl.addEventListener('input', () => {
+    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = d
