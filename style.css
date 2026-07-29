@@ -1287,7 +1287,7 @@ html, body {
   border: 1px solid var(--border2);
   border-radius: 16px;
   width: 100%;
-  max-width: 900px;
+  max-width: 420px;
   overflow: hidden;
 }
 
@@ -1330,8 +1330,11 @@ html, body {
 .vm-btn.warn  { color: var(--yellow); border-color: rgba(245,158,11,0.3); }
 .vm-btn.close-btn:hover { border-color: var(--red); color: var(--red); }
 .vm-video-wrap {
-  aspect-ratio: 16/9;
+  aspect-ratio: 9/16;
   background: #000;
+  max-height: 75vh;
+  margin: 0 auto;
+  width: auto;
 }
 .vm-video-wrap video {
   width: 100%;
