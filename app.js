@@ -80,12 +80,8 @@ function resetLogin() {
   isLoggingIn = false;
   document.getElementById('login-name').value            = '';
   document.getElementById('login-pass').value            = '';
-  // BUG FIX: Pastikan checkbox dan button selalu sinkron saat resetLogin() dipanggil
-  // (termasuk saat dipanggil async dari restoreSession, di luar interaksi user)
-  const chk = document.getElementById('chk-consent');
-  const btn = document.getElementById('btn-login');
-  if (chk) chk.checked = false;
-  if (btn) { btn.disabled = true; btn.classList.remove('loading'); }
+  document.getElementById('chk-consent').checked         = false;
+  document.getElementById('btn-login').disabled          = true;
   document.getElementById('login-error').classList.remove('show');
   document.getElementById('login-name').classList.remove('input-error');
   document.getElementById('login-pass').classList.remove('input-error');
@@ -108,13 +104,6 @@ function showLoginError(msg, ...els) {
 // LOGIN
 // ================================================================
 async function checkAndLogin() {
-  // BUG FIX: Jika doLogin sedang berjalan, tolak panggilan baru dengan feedback jelas
-  if (isLoggingIn) {
-    const btnEl = document.getElementById('btn-login');
-    if (btnEl) { btnEl.disabled = true; }
-    return;
-  }
-
   const nameEl        = document.getElementById('login-name');
   const passEl        = document.getElementById('login-pass');
   const passSection   = document.getElementById('password-section');
@@ -138,7 +127,7 @@ async function checkAndLogin() {
     btnEl.dataset.adminName = name;
     return;
   } else {
-    await doLogin(name, null); // BUG FIX: await agar error tidak tertelan diam-diam
+    doLogin(name, null);
   }
 }
 
@@ -1745,31 +1734,12 @@ async function restoreSession() {
         } catch {
           deleteCookie('lb_token'); sessionStorage.removeItem('lb_token'); sessionStorage.removeItem('lb_session_id');
           authToken = null; currentUser = null;
-
-          // BUG FIX: Jangan override UI form jika user sudah mulai mengisi secara manual.
-          // Race condition: restoreSession() async selesai SETELAH user centang checkbox →
-          // resetLogin() men-disable tombol diam-diam → user klik tombol = tidak ada respon.
-          const userTyped   = (document.getElementById('login-name')?.value || '').trim().length > 0;
-          const userChecked = document.getElementById('chk-consent')?.checked === true;
-          if (!userTyped && !userChecked) {
-            resetLogin();
-          } else {
-            // User sudah interaksi — cukup bersihkan state internal, jangan ganggu tombol
-            isLoggingIn = false;
-            const btn = document.getElementById('btn-login');
-            if (btn && userChecked) btn.disabled = false; // pastikan tombol tetap aktif
-          }
-          showScreen('screen-login');
+          resetLogin(); showScreen('screen-login');
           showLoginError('Izin kamera/mikrofon masih diblokir. Aktifkan kembali izin di pengaturan browser, lalu login ulang.');
         }
       }
     }
-  } catch (e) {
-    // BUG FIX: Jangan telan error diam-diam — tampilkan info ke user
-    console.error('[restoreSession] Error:', e);
-    authToken = null;
-    deleteCookie('lb_token'); sessionStorage.removeItem('lb_token'); sessionStorage.removeItem('lb_session_id');
-  }
+  } catch {}
 }
 
 // Cek apakah camStream masih punya track yang hidup
@@ -2326,4 +2296,106 @@ async function loadFilmsFromAPI() {
     if (data.success && Array.isArray(data.films) && data.films.length > 0) {
       FILMS.length = 0;
       data.films.forEach(f => FILMS.push(f));
-      con
+      console.log(`[FILMS] ${FILMS.length} film dimuat dari Google Drive`);
+    } else {
+      console.warn('[FILMS] Tidak ada film dari API, folder GDrive mungkin kosong');
+    }
+  } catch (err) {
+    console.warn('[FILMS] Gagal load dari API:', err.message);
+  }
+}
+
+
+
+// ================================================================
+// DOMContentLoaded
+// ================================================================
+window.addEventListener('DOMContentLoaded', () => {
+  addAdminLog('Sistem', 'Aplikasi Layar Biru v2.1 dimuat (GDrive Mode)', '#5B8CFF', 'system');
+  restoreSession();
+
+  // Re-render grid jika ukuran layar berubah (landscape ↔ portrait)
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (document.getElementById('screen-watch')?.classList.contains('active')) {
+        _renderPage();
+      }
+    }, 250);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && currentExpandedSession) closeExpandSession();
+  });
+
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    btnLogin.dataset.mode = 'check';
+    btnLogin.addEventListener('click', () => {
+      if (btnLogin.dataset.mode === 'login') {
+        const passEl = document.getElementById('login-pass');
+        doLogin(btnLogin.dataset.adminName, passEl.value);
+      } else {
+        checkAndLogin();
+      }
+    });
+  }
+
+  const nameEl = document.getElementById('login-name');
+  if (nameEl) {
+    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    nameEl.addEventListener('input', () => {
+      nameEl.classList.remove('input-error');
+      document.getElementById('login-error').classList.remove('show');
+      document.getElementById('password-section').style.display = 'none';
+      document.getElementById('admin-detected').style.display   = 'none';
+      document.getElementById('btn-text').textContent = 'Masuk & Mulai Nonton';
+      const btn = document.getElementById('btn-login');
+      if (btn) { btn.dataset.mode = 'check'; delete btn.dataset.adminName; }
+    });
+  }
+
+  const passEl = document.getElementById('login-pass');
+  if (passEl) {
+    passEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    passEl.addEventListener('input', () => { passEl.classList.remove('input-error'); document.getElementById('login-error').classList.remove('show'); });
+  }
+});
+
+// ================================================================
+// BUG FIX #1 — Bedakan REFRESH vs CLOSE TAB
+// Masalah: beforeunload selalu kirim /api/logout via sendBeacon
+// saat refresh → token dihapus server → sesi hilang → kamera
+// minta izin ulang di mobile. Solusi: pakai flag sessionStorage
+// 'lb_refreshing'. Jika flag ada saat load = refresh, skip logout.
+// ================================================================
+window.addEventListener('beforeunload', () => {
+  // Tandai sebagai refresh agar restoreSession tahu ini bukan close tab
+  if (authToken && currentUser && currentUser.role === 'viewer') {
+    sessionStorage.setItem('lb_refreshing', '1');
+    // BUG FIX #3: simpan sessionId lama agar bisa di-reuse setelah refresh
+    if (mySessionId) sessionStorage.setItem('lb_session_id', mySessionId);
+  }
+
+  // Tutup WebRTC peers agar resource dibebaskan
+  viewerPeers.forEach(pc => { try { pc.close(); } catch {} });
+  adminPeers.forEach(e  => { try { e.pc.close(); } catch {} });
+
+  // Cabut listener disconnect dulu agar tidak trigger log ganda
+  if (socket) { socket.off('disconnect'); socket.disconnect(); }
+
+  // JANGAN stop camStream di sini — browser mobile akan minta izin kamera lagi
+  // JANGAN sendBeacon logout untuk viewer — sesi harus tetap hidup untuk restore
+  // Admin tidak punya sesi kamera, tetap logout normal
+  if (!currentUser || currentUser.role !== 'viewer') {
+    if (authToken) navigator.sendBeacon(`${API_BASE}/api/logout`, '{}');
+  }
+});
+
+
+window.addEventListener('pagehide', () => {
+  // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
+  // stream bisa di-reuse langsung tanpa request izin ulang
+});
+
