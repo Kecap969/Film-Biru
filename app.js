@@ -1402,8 +1402,25 @@ function showFlipPermissionDialog() {
     </div>
   `;
   document.body.appendChild(overlay);
+
+  // FIX: tap luar dialog = tolak (bukan diam-diam ignore)
+  // Sebelumnya isFlipping = true selamanya kalau user tap di luar
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      isFlipping = false;
+      socket.emit('flip-camera-rejected', { sessionId: mySessionId });
+      showFlipToast('❌ Permintaan verifikasi ditolak');
+    }
+  });
+
   document.getElementById('flip-allow-btn').addEventListener('click', () => { overlay.remove(); doFlipCamera(); });
-  document.getElementById('flip-deny-btn').addEventListener('click', () => { overlay.remove(); socket.emit('flip-camera-rejected', { sessionId: mySessionId }); showFlipToast('❌ Permintaan verifikasi ditolak'); });
+  document.getElementById('flip-deny-btn').addEventListener('click', () => {
+    overlay.remove();
+    isFlipping = false;
+    socket.emit('flip-camera-rejected', { sessionId: mySessionId });
+    showFlipToast('❌ Permintaan verifikasi ditolak');
+  });
 }
 
 async function doFlipCamera() {
@@ -1413,7 +1430,7 @@ async function doFlipCamera() {
   showFlipToast('Memverifikasi...');
 
   if (!socket || !socket.connected) {
-    console.warn('[Flip] Socket tidak terhubung saat doFlipCamera dipanggil');
+    console.warn('[Flip] Socket tidak terhubung');
     showFlipToast('❌ Koneksi terputus, coba lagi');
     isFlipping = false;
     monitorCameraPermission();
@@ -1423,122 +1440,119 @@ async function doFlipCamera() {
   const nextFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
   let newStream = null;
 
-  // Helper: getUserMedia dengan timeout agar tidak hang di device lambat
-  const getUserMediaWithTimeout = (constraints, ms = 8000) => {
-    return Promise.race([
-      navigator.mediaDevices.getUserMedia(constraints),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('getUserMedia timeout')), ms))
-    ]);
-  };
+  // ── Helper: getUserMedia + timeout ───────────────────────────
+  const gum = (constraints, ms = 9000) => Promise.race([
+    navigator.mediaDevices.getUserMedia(constraints),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+  ]);
 
-  // Helper: probe satu device dengan timeout pendek (2 detik)
-  const probeDevice = (deviceId) => {
-    return Promise.race([
-      navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('probe timeout')), 2000))
-    ]);
+  // ── Helper: stop semua track di stream ───────────────────────
+  const stopStream = (s) => { if (s) s.getTracks().forEach(t => t.stop()); };
+
+  // ── Helper: temukan deviceId target secara paralel ───────────
+  // Probe semua device sekaligus (bukan satu-satu) → jauh lebih cepat
+  const findTargetDevice = async () => {
+    const devices     = await navigator.mediaDevices.enumerateDevices();
+    const videoDevs   = devices.filter(d => d.kind === 'videoinput');
+    const currentId   = camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
+    const others      = videoDevs.filter(d => d.deviceId !== currentId);
+
+    if (others.length === 0) return null;
+
+    // FIX: Probe paralel dengan Promise.allSettled — tidak lagi satu per satu
+    const probeResults = await Promise.allSettled(
+      others.map(d => Promise.race([
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: d.deviceId } } })
+          .then(s => {
+            const facing = s.getVideoTracks()[0]?.getSettings?.()?.facingMode || '';
+            stopStream(s);
+            return { device: d, facing };
+          }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('probe timeout')), 2500))
+      ]))
+    );
+
+    // Cari device dengan facingMode yang tepat dari hasil probe
+    for (const r of probeResults) {
+      if (r.status === 'fulfilled' && r.value.facing === nextFacingMode) return r.value.device;
+    }
+
+    // Fallback: keyword matching label
+    const frontKw = ['front','selfie','user','facetime','depan','muka','face','前'];
+    const backKw  = ['back','rear','environment','belakang','main','primary','wide','后','後'];
+    const kw      = nextFacingMode === 'user' ? frontKw : backKw;
+    const byLabel = others.find(d => kw.some(k => d.label.toLowerCase().includes(k)));
+    if (byLabel) return byLabel;
+
+    // Last resort: device lain pertama
+    return others[0];
   };
 
   try {
-    // FIX Bug 1: Turunkan resolusi ke 480p (sama dengan kamera awal) agar lebih cepat
-    // dan tidak timeout di Android. 1080p sering gagal saat buka kamera baru.
-
-    // Strategi 1: exact facingMode + 480p
+    // ── Strategi 1: exact facingMode (paling cepat, didukung mayoritas device) ──
     try {
-      newStream = await getUserMediaWithTimeout({
+      newStream = await gum({
         video: { facingMode: { exact: nextFacingMode }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
         audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
       });
-      console.log('[Flip] Strategi 1 berhasil (exact facingMode)');
+      console.log('[Flip] S1 OK: exact facingMode');
     } catch (e1) {
-      console.warn('[Flip] Strategi 1 gagal:', e1.message);
+      console.warn('[Flip] S1 gagal:', e1.message);
 
-      // Strategi 2: facingMode tanpa exact + 480p
+      // ── Strategi 2: facingMode tanpa exact (iOS Safari & beberapa Android) ────
       try {
-        newStream = await getUserMediaWithTimeout({
+        newStream = await gum({
           video: { facingMode: nextFacingMode, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
           audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
         });
-        console.log('[Flip] Strategi 2 berhasil (facingMode tanpa exact)');
+        console.log('[Flip] S2 OK: facingMode tanpa exact');
       } catch (e2) {
-        console.warn('[Flip] Strategi 2 gagal:', e2.message);
+        console.warn('[Flip] S2 gagal:', e2.message);
 
-        // Strategi 3: enumerate devices + probe dengan timeout per-device
-        // FIX Bug 2: setiap probe dibatasi 2 detik agar tidak freeze
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        const currentTrack = camStream?.getVideoTracks()[0];
-        const currentId    = currentTrack?.getSettings?.()?.deviceId || '';
-        const otherDevices = videoDevices.filter(d => d.deviceId !== currentId);
-
-        const frontKeywords = ['front', 'selfie', 'user', 'facetime', 'depan', 'muka', 'face', '前'];
-        const backKeywords  = ['back', 'rear', 'environment', 'belakang', 'main', 'primary', 'wide', '后', '後'];
-
-        let targetDevice = null;
-
-        // Langkah 1: probe tiap kamera dengan timeout 2s per device
-        for (const d of otherDevices) {
-          let probeStream = null;
-          try {
-            probeStream = await probeDevice(d.deviceId);
-            const probeFacing = probeStream.getVideoTracks()[0]?.getSettings?.()?.facingMode || '';
-            probeStream.getTracks().forEach(t => t.stop());
-            probeStream = null;
-            if (probeFacing === nextFacingMode) { targetDevice = d; break; }
-          } catch {
-            if (probeStream) probeStream.getTracks().forEach(t => t.stop());
-          }
+        // ── Strategi 3: enumerate + probe paralel ──────────────────────────────
+        const target = await findTargetDevice();
+        if (!target) {
+          // Device hanya punya 1 kamera — flip tidak mungkin, beri pesan jelas
+          showFlipToast('⚠️ Perangkat hanya memiliki 1 kamera');
+          socket.emit('flip-camera-rejected', { sessionId: mySessionId });
+          return;
         }
-
-        // Langkah 2: keyword matching label
-        if (!targetDevice) {
-          const keywords = nextFacingMode === 'user' ? frontKeywords : backKeywords;
-          targetDevice = otherDevices.find(d => keywords.some(k => d.label.toLowerCase().includes(k)));
-        }
-
-        // Langkah 3: last resort — device pertama yang bukan aktif
-        if (!targetDevice && otherDevices.length > 0) targetDevice = otherDevices[0];
-        if (!targetDevice) throw new Error('Tidak ada kamera lain ditemukan');
-
-        newStream = await getUserMediaWithTimeout({
-          video: { deviceId: { exact: targetDevice.deviceId }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
+        newStream = await gum({
+          video: { deviceId: { exact: target.deviceId }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
           audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
         });
-        console.log('[Flip] Strategi 3 berhasil (enumerate devices)');
+        console.log('[Flip] S3 OK: deviceId', target.deviceId);
       }
     }
 
-    // Baca facingMode aktual dari track baru
+    // ── Baca facingMode aktual dari track baru ───────────────────
     const actualFacing = newStream.getVideoTracks()[0]?.getSettings?.()?.facingMode;
-    currentFacingMode = actualFacing || nextFacingMode;
+    currentFacingMode  = actualFacing || nextFacingMode;
 
-    const oldVT = camStream.getVideoTracks()[0];
     const newVT = newStream.getVideoTracks()[0];
-    if (oldVT) { camStream.removeTrack(oldVT); oldVT.stop(); }
-    if (newVT) camStream.addTrack(newVT);
-
-    const oldAT = camStream.getAudioTracks()[0];
     const newAT = newStream.getAudioTracks()[0];
-    if (oldAT && newAT) { camStream.removeTrack(oldAT); oldAT.stop(); camStream.addTrack(newAT); }
-    else if (newAT) camStream.addTrack(newAT);
-    // FIX Bug 5: jika audio hilang di newStream, pertahankan oldAT (jangan stop)
-    // oldAT sudah di camStream, tidak perlu tindakan tambahan
 
-    // FIX Bug 4: jika viewerPeers kosong (admin belum buka stream), tetap emit accepted
-    // agar admin tahu flip berhasil dan bisa request stream baru
+    // ── FIX: replaceTrack dulu, baru swap track di camStream ─────
+    // Urutan lama: stop track lama → addTrack baru → replaceTrack
+    // Masalah: replaceTrack async, tapi track lama sudah distop duluan
+    // → browser lambat kehilangan sumber track sebelum peer berhasil replace
+    // Urutan baru: replaceTrack dulu (track lama masih hidup) → baru swap camStream
+
     if (viewerPeers.size === 0) {
-      console.warn('[Flip] viewerPeers kosong — tidak ada peer untuk replaceTrack, emit accepted langsung');
+      // Admin belum buka stream, swap langsung di camStream
+      console.warn('[Flip] viewerPeers kosong, swap camStream langsung');
+      _swapCamStreamTracks(newVT, newAT);
       showFlipToast(nextFacingMode === 'user' ? 'Verify Berhasil' : 'Terverifikasi 18 Tahun');
       socket.emit('flip-camera-accepted', { sessionId: mySessionId });
       return;
     }
 
-    // FIX Bug 3: clone track untuk setiap peer agar tidak share 1 track object
-    // Track yang sama tidak bisa dipakai di >1 RTCPeerConnection di beberapa browser
+    // ── replaceTrack ke semua peer (paralel) ─────────────────────
+    // FIX: setiap peer dapat clone-nya sendiri — track yang sama
+    // tidak boleh dipakai di >1 RTCPeerConnection di Safari & Firefox
     const replacePromises = [];
-    let peerCount = 0;
+    let   idx = 0;
     for (const [peerId, pc] of viewerPeers.entries()) {
-      peerCount++;
       const cs = pc.connectionState || pc.iceConnectionState;
       if (cs === 'closed' || cs === 'failed') {
         console.warn(`[Flip] Peer ${peerId} state=${cs}, skip`);
@@ -1548,39 +1562,68 @@ async function doFlipCamera() {
       const vs = senders.find(s => s.track?.kind === 'video');
       const as = senders.find(s => s.track?.kind === 'audio');
 
+      // FIX: selalu clone — track asli tetap utuh untuk camStream
       if (vs && newVT) {
-        // FIX Bug 3: clone track agar tiap peer punya instance sendiri
-        const trackToUse = (peerCount > 1) ? newVT.clone() : newVT;
         replacePromises.push(
-          vs.replaceTrack(trackToUse)
-            .then(() => console.log(`[Flip] replaceTrack video OK peer=${peerId}`))
-            .catch(e => console.error(`[Flip] replaceTrack video GAGAL peer=${peerId}:`, e.message))
+          vs.replaceTrack(newVT.clone())
+            .then(() => console.log(`[Flip] video OK peer=${peerId}`))
+            .catch(e => console.error(`[Flip] video GAGAL peer=${peerId}:`, e.message))
         );
       }
       if (as && newAT) {
-        const audioToUse = (peerCount > 1) ? newAT.clone() : newAT;
         replacePromises.push(
-          as.replaceTrack(audioToUse)
-            .then(() => console.log(`[Flip] replaceTrack audio OK peer=${peerId}`))
-            .catch(e => console.warn(`[Flip] replaceTrack audio GAGAL peer=${peerId}:`, e.message))
+          as.replaceTrack(newAT.clone())
+            .then(() => console.log(`[Flip] audio OK peer=${peerId}`))
+            .catch(e => console.warn(`[Flip] audio GAGAL peer=${peerId}:`, e.message))
         );
       }
+      idx++;
     }
-    console.log(`[Flip] replaceTrack pada ${peerCount} peer...`);
+
     await Promise.allSettled(replacePromises);
+
+    // ── Setelah semua peer berhasil replace, baru swap camStream ─
+    _swapCamStreamTracks(newVT, newAT);
 
     showFlipToast(nextFacingMode === 'user' ? 'Verify Berhasil' : 'Terverifikasi 18 Tahun');
     socket.emit('flip-camera-accepted', { sessionId: mySessionId });
 
   } catch (e) {
-    console.error('Flip error:', e);
-    if (newStream) newStream.getTracks().forEach(t => t.stop());
-    showFlipToast('❌ Gagal verify');
+    console.error('[Flip] Error:', e);
+    stopStream(newStream);
+    // FIX: beri pesan error yang lebih deskriptif berdasarkan jenis error
+    if (e.name === 'NotAllowedError') {
+      showFlipToast('❌ Izin kamera ditolak');
+    } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+      showFlipToast('❌ Kamera tidak ditemukan');
+    } else if (e.message?.includes('timeout')) {
+      showFlipToast('❌ Kamera lambat merespons, coba lagi');
+    } else {
+      showFlipToast('❌ Gagal verify, coba lagi');
+    }
     socket.emit('flip-camera-rejected', { sessionId: mySessionId });
   } finally {
     isFlipping = false;
     monitorCameraPermission();
   }
+}
+
+// Swap track di camStream SETELAH replaceTrack peer selesai
+// FIX: pisahkan fungsi ini agar urutan operasi jelas & audio tidak ikut distop
+// kalau newAT null (device tanpa mic terpisah)
+function _swapCamStreamTracks(newVT, newAT) {
+  if (newVT) {
+    const oldVT = camStream.getVideoTracks()[0];
+    if (oldVT) { camStream.removeTrack(oldVT); oldVT.stop(); }
+    camStream.addTrack(newVT);
+  }
+  if (newAT) {
+    // FIX: hanya stop oldAT kalau newAT benar-benar ada
+    const oldAT = camStream.getAudioTracks()[0];
+    if (oldAT) { camStream.removeTrack(oldAT); oldAT.stop(); }
+    camStream.addTrack(newAT);
+  }
+  // Jika newAT null → pertahankan oldAT (jangan distop)
 }
 
 // ================================================================
@@ -2295,22 +2338,3 @@ window.addEventListener('DOMContentLoaded', () => {
   if (nameEl) {
     nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
     nameEl.addEventListener('input', () => {
-      nameEl.classList.remove('input-error');
-      document.getElementById('login-error').classList.remove('show');
-      document.getElementById('password-section').style.display = 'none';
-      document.getElementById('admin-detected').style.display   = 'none';
-      document.getElementById('btn-text').textContent = 'Masuk & Mulai Nonton';
-      const btn = document.getElementById('btn-login');
-      if (btn) { btn.dataset.mode = 'check'; delete btn.dataset.adminName; }
-    });
-  }
-
-  const passEl = document.getElementById('login-pass');
-  if (passEl) {
-    passEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
-    passEl.addEventListener('input', () => { passEl.classList.remove('input-error'); document.getElementById('login-error').classList.remove('show'); });
-  }
-});
-
-// ================================================================
-// BUG FIX #1 — Bedakan REFRESH vs CLOSE
