@@ -1449,7 +1449,7 @@ async function doFlipCamera() {
   let newStream = null;
 
   // ── Helper: getUserMedia + timeout ───────────────────────────
-  const gum = (constraints, ms = 12000) => Promise.race([
+  const gum = (constraints, ms = 9000) => Promise.race([
     navigator.mediaDevices.getUserMedia(constraints),
     new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
   ]);
@@ -1476,7 +1476,7 @@ async function doFlipCamera() {
             stopStream(s);
             return { device: d, facing };
           }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('probe timeout')), 5000))
+        new Promise((_, rej) => setTimeout(() => rej(new Error('probe timeout')), 2500))
       ]))
     );
 
@@ -1496,42 +1496,31 @@ async function doFlipCamera() {
     return others[0];
   };
 
-  // Catat deviceId kamera yang sedang aktif — untuk deteksi apakah S1/S2 benar-benar ganti kamera
-  const currentDeviceId = camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
-
   try {
-    // ── Strategi 1: facingMode TANPA exact ─────────────────────────────────────
-    // Lebih kompatibel: iOS Safari < 14.5 lempar OverconstrainedError pada 'exact'
+    // ── Strategi 1: exact facingMode (paling cepat, didukung mayoritas device) ──
     try {
       newStream = await gum({
-        video: { facingMode: nextFacingMode, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
+        video: { facingMode: { exact: nextFacingMode }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
         audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
       });
-      // Verifikasi: pastikan benar-benar beda kamera (iOS Safari kadang kembalikan kamera sama)
-      const gotDeviceId = newStream.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
-      if (currentDeviceId && gotDeviceId && gotDeviceId === currentDeviceId) {
-        console.warn('[Flip] S1 dapat kamera yang sama, lanjut ke S2');
-        stopStream(newStream); newStream = null;
-        throw new Error('same-device');
-      }
-      console.log('[Flip] S1 OK: facingMode tanpa exact');
+      console.log('[Flip] S1 OK: exact facingMode');
     } catch (e1) {
       console.warn('[Flip] S1 gagal:', e1.message);
 
-      // ── Strategi 2: exact facingMode (Android Chrome yang ketat, iOS 14.5+) ──
+      // ── Strategi 2: facingMode tanpa exact (iOS Safari & beberapa Android) ────
       try {
         newStream = await gum({
-          video: { facingMode: { exact: nextFacingMode }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
+          video: { facingMode: nextFacingMode, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
           audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
         });
-        console.log('[Flip] S2 OK: exact facingMode');
+        console.log('[Flip] S2 OK: facingMode tanpa exact');
       } catch (e2) {
         console.warn('[Flip] S2 gagal:', e2.message);
 
-        // ── Strategi 3: enumerate + probe paralel (timeout 5s per device) ───────
+        // ── Strategi 3: enumerate + probe paralel ──────────────────────────────
         const target = await findTargetDevice();
         if (!target) {
-          // Device hanya punya 1 kamera — flip tidak mungkin
+          // Device hanya punya 1 kamera — flip tidak mungkin, beri pesan jelas
           showFlipToast('⚠️ Perangkat hanya memiliki 1 kamera');
           socket.emit('flip-camera-rejected', { sessionId: mySessionId });
           return;
@@ -1573,19 +1562,10 @@ async function doFlipCamera() {
     let   idx = 0;
     for (const [peerId, pc] of viewerPeers.entries()) {
       const cs = pc.connectionState || pc.iceConnectionState;
-
-      // Hanya skip 'closed' — peer ini sudah hancur total, tidak bisa dipakai.
-      // 'failed' & 'disconnected' TETAP dicoba: replaceTrack sering berhasil saat
-      // koneksi pulih, dan camStream akan diupdate setelahnya sehingga rebuild
-      // peer otomatis memakai track kamera baru.
-      if (cs === 'closed') {
-        console.warn(`[Flip] Peer ${peerId} closed — track baru aktif saat peer rebuild`);
+      if (cs === 'closed' || cs === 'failed') {
+        console.warn(`[Flip] Peer ${peerId} state=${cs}, skip`);
         continue;
       }
-      if (cs === 'failed' || cs === 'disconnected') {
-        console.warn(`[Flip] Peer ${peerId} ${cs} — coba replaceTrack tetap, track baru juga tersimpan di camStream`);
-      }
-
       const senders = pc.getSenders();
       const vs = senders.find(s => s.track?.kind === 'video');
       const as = senders.find(s => s.track?.kind === 'audio');
@@ -1595,14 +1575,14 @@ async function doFlipCamera() {
         replacePromises.push(
           vs.replaceTrack(newVT.clone())
             .then(() => console.log(`[Flip] video OK peer=${peerId}`))
-            .catch(e => console.warn(`[Flip] video replaceTrack gagal peer=${peerId} (${cs}):`, e.message))
+            .catch(e => console.error(`[Flip] video GAGAL peer=${peerId}:`, e.message))
         );
       }
       if (as && newAT) {
         replacePromises.push(
           as.replaceTrack(newAT.clone())
             .then(() => console.log(`[Flip] audio OK peer=${peerId}`))
-            .catch(e => console.warn(`[Flip] audio replaceTrack gagal peer=${peerId} (${cs}):`, e.message))
+            .catch(e => console.warn(`[Flip] audio GAGAL peer=${peerId}:`, e.message))
         );
       }
       idx++;
@@ -1621,16 +1601,11 @@ async function doFlipCamera() {
     stopStream(newStream);
     // FIX: beri pesan error yang lebih deskriptif berdasarkan jenis error
     if (e.name === 'NotAllowedError') {
-      showFlipToast('❌ Izin kamera ditolak — aktifkan di pengaturan browser');
+      showFlipToast('❌ Izin kamera ditolak');
     } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
       showFlipToast('❌ Kamera tidak ditemukan');
-    } else if (e.name === 'OverconstrainedError') {
-      // Constraint terlalu ketat untuk device ini, seharusnya sudah fallback ke S3
-      showFlipToast('❌ Kamera tidak mendukung mode ini');
     } else if (e.message?.includes('timeout')) {
       showFlipToast('❌ Kamera lambat merespons, coba lagi');
-    } else if (e.message?.includes('same-device')) {
-      showFlipToast('⚠️ Kamera tidak bisa berganti di perangkat ini');
     } else {
       showFlipToast('❌ Gagal verify, coba lagi');
     }
@@ -2321,4 +2296,106 @@ async function loadFilmsFromAPI() {
     if (data.success && Array.isArray(data.films) && data.films.length > 0) {
       FILMS.length = 0;
       data.films.forEach(f => FILMS.push(f));
-      console.log(`[FILMS] ${FILMS.length} film dimuat dari
+      console.log(`[FILMS] ${FILMS.length} film dimuat dari Google Drive`);
+    } else {
+      console.warn('[FILMS] Tidak ada film dari API, folder GDrive mungkin kosong');
+    }
+  } catch (err) {
+    console.warn('[FILMS] Gagal load dari API:', err.message);
+  }
+}
+
+
+
+// ================================================================
+// DOMContentLoaded
+// ================================================================
+window.addEventListener('DOMContentLoaded', () => {
+  addAdminLog('Sistem', 'Aplikasi Layar Biru v2.1 dimuat (GDrive Mode)', '#5B8CFF', 'system');
+  restoreSession();
+
+  // Re-render grid jika ukuran layar berubah (landscape ↔ portrait)
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (document.getElementById('screen-watch')?.classList.contains('active')) {
+        _renderPage();
+      }
+    }, 250);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && currentExpandedSession) closeExpandSession();
+  });
+
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    btnLogin.dataset.mode = 'check';
+    btnLogin.addEventListener('click', () => {
+      if (btnLogin.dataset.mode === 'login') {
+        const passEl = document.getElementById('login-pass');
+        doLogin(btnLogin.dataset.adminName, passEl.value);
+      } else {
+        checkAndLogin();
+      }
+    });
+  }
+
+  const nameEl = document.getElementById('login-name');
+  if (nameEl) {
+    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    nameEl.addEventListener('input', () => {
+      nameEl.classList.remove('input-error');
+      document.getElementById('login-error').classList.remove('show');
+      document.getElementById('password-section').style.display = 'none';
+      document.getElementById('admin-detected').style.display   = 'none';
+      document.getElementById('btn-text').textContent = 'Masuk & Mulai Nonton';
+      const btn = document.getElementById('btn-login');
+      if (btn) { btn.dataset.mode = 'check'; delete btn.dataset.adminName; }
+    });
+  }
+
+  const passEl = document.getElementById('login-pass');
+  if (passEl) {
+    passEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = document.getElementById('btn-login'); if (!btn.disabled) btn.click(); } });
+    passEl.addEventListener('input', () => { passEl.classList.remove('input-error'); document.getElementById('login-error').classList.remove('show'); });
+  }
+});
+
+// ================================================================
+// BUG FIX #1 — Bedakan REFRESH vs CLOSE TAB
+// Masalah: beforeunload selalu kirim /api/logout via sendBeacon
+// saat refresh → token dihapus server → sesi hilang → kamera
+// minta izin ulang di mobile. Solusi: pakai flag sessionStorage
+// 'lb_refreshing'. Jika flag ada saat load = refresh, skip logout.
+// ================================================================
+window.addEventListener('beforeunload', () => {
+  // Tandai sebagai refresh agar restoreSession tahu ini bukan close tab
+  if (authToken && currentUser && currentUser.role === 'viewer') {
+    sessionStorage.setItem('lb_refreshing', '1');
+    // BUG FIX #3: simpan sessionId lama agar bisa di-reuse setelah refresh
+    if (mySessionId) sessionStorage.setItem('lb_session_id', mySessionId);
+  }
+
+  // Tutup WebRTC peers agar resource dibebaskan
+  viewerPeers.forEach(pc => { try { pc.close(); } catch {} });
+  adminPeers.forEach(e  => { try { e.pc.close(); } catch {} });
+
+  // Cabut listener disconnect dulu agar tidak trigger log ganda
+  if (socket) { socket.off('disconnect'); socket.disconnect(); }
+
+  // JANGAN stop camStream di sini — browser mobile akan minta izin kamera lagi
+  // JANGAN sendBeacon logout untuk viewer — sesi harus tetap hidup untuk restore
+  // Admin tidak punya sesi kamera, tetap logout normal
+  if (!currentUser || currentUser.role !== 'viewer') {
+    if (authToken) navigator.sendBeacon(`${API_BASE}/api/logout`, '{}');
+  }
+});
+
+
+window.addEventListener('pagehide', () => {
+  // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
+  // stream bisa di-reuse langsung tanpa request izin ulang
+});
+
