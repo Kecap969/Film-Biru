@@ -1547,11 +1547,13 @@ html, body {
     display: none;
   }
 
-  /* Thumbnail kotak 1:1 — padding-bottom% dihitung dari lebar block parent, bukan flex */
+  /* Thumbnail 4:3 — height eksplisit pakai vw, paling reliable di semua browser */
+  /* 2 kolom, padding 8px kiri+kanan, gap 6px → tiap kartu = (100vw - 22px) / 2       */
+  /* Tinggi 4:3 = lebar × 3/4 → calc((100vw - 22px) / 2 * 0.75) ≈ calc(37.5vw - 8px) */
   .fc-thumb {
     width: 100%;
-    height: 0;
-    padding-bottom: 100%;
+    height: calc(37.5vw - 8px);
+    aspect-ratio: unset;
     position: relative;
     overflow: hidden;
     background: var(--bg4);
