@@ -1514,10 +1514,10 @@ html, body {
   .wm-badge-name { max-width: 80px; font-size: 0.74rem; }
   .wm-badge-logout { font-size: 0.68rem; padding: 4px 10px; }
 
-  /* Film grid — 3 kolom landscape, scroll */
+  /* Film grid — kotak-kotak seperti thumbnail Google Drive, 3 kolom */
   .film-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     padding: 8px 8px 24px;
     overflow-y: scroll;
@@ -1529,21 +1529,32 @@ html, body {
     align-content: start;
   }
 
-  /* Kartu thumbnail only */
+  /* Kartu — hanya thumbnail kotak, tanpa judul */
   .film-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
     height: auto;
     min-width: 0;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+    border-radius: 8px;
+    border: 1px solid var(--border2);
     overflow: hidden;
     margin-bottom: 0;
+    background: var(--bg3);
+  }
+  .film-card:active {
+    border-color: var(--accent);
+    background: var(--bg4);
   }
 
-  /* Thumbnail 16:9 pakai aspect-ratio langsung — lebih reliable di semua browser */
+  /* Info bar (judul) disembunyikan di grid mobile */
+  .fc-info {
+    display: none;
+  }
+
+  /* Thumbnail kotak 1:1 */
   .fc-thumb {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 1 / 1;
     position: relative;
     overflow: hidden;
     background: var(--bg4);
@@ -1560,7 +1571,7 @@ html, body {
   .fc-thumb-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.35);
+    background: rgba(0,0,0,0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1568,10 +1579,7 @@ html, body {
     transition: opacity 0.15s;
   }
   .film-card:active .fc-thumb-overlay { opacity: 1; }
-  .fc-play-icon { width: 24px; height: 24px; font-size: 0.7rem; }
-
-  /* Sembunyikan info bar */
-  .fc-info { display: none; }
+  .fc-play-icon { width: 22px; height: 22px; font-size: 0.6rem; }
 
   /* Admin screen */
   .admin-sidebar { display: none; }
