@@ -1024,35 +1024,36 @@ html, body {
   font-size: 1.4rem;
   letter-spacing: 0.05em;
 }
-.ac-live {
+.ac-logout-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.3);
-  border-radius: 20px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #FCA5A5;
-  letter-spacing: 0.1em;
+  gap: 7px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--muted2);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
 }
-.rec-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-  animation: pulse 1.5s infinite;
+.ac-logout-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(239,68,68,0.07);
 }
 
 /* Sessions grid */
 .sessions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-  padding: 16px 24px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 16px;
+  padding: 18px 24px;
   overflow-y: auto;
-  max-height: 45vh;
+  max-height: 62vh;
 }
 .sessions-grid::-webkit-scrollbar { width: 4px; }
 .sessions-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
@@ -1112,7 +1113,7 @@ html, body {
 
 .sc-video-container {
   position: relative;
-  aspect-ratio: 16/10;
+  aspect-ratio: 4/3;
   background: #000;
 }
 .sc-video-container video {
@@ -1287,7 +1288,7 @@ html, body {
   border: 1px solid var(--border2);
   border-radius: 16px;
   width: 100%;
-  max-width: 420px;
+  max-width: 680px;
   overflow: hidden;
 }
 
@@ -1332,7 +1333,7 @@ html, body {
 .vm-video-wrap {
   aspect-ratio: 9/16;
   background: #000;
-  max-height: 75vh;
+  max-height: 82vh;
   margin: 0 auto;
   width: auto;
 }
