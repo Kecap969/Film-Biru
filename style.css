@@ -108,6 +108,24 @@ html, body {
 }
 .brand-accent { color: var(--accent); }
 
+/* Logo gambar — login branding */
+.brand-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Logo gambar — sidebar (watch & admin) */
+.sidebar-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
 .login-hero-text h1 {
   font-family: 'Bebas Neue', sans-serif;
   font-size: clamp(3rem, 6vw, 5.5rem);
