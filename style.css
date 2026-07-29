@@ -1514,10 +1514,10 @@ html, body {
   .wm-badge-name { max-width: 80px; font-size: 0.74rem; }
   .wm-badge-logout { font-size: 0.68rem; padding: 4px 10px; }
 
-  /* Film grid — kotak-kotak seperti thumbnail Google Drive, 3 kolom */
+  /* Film grid — 2 kolom kotak */
   .film-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 6px;
     padding: 8px 8px 24px;
     overflow-y: scroll;
@@ -1529,16 +1529,12 @@ html, body {
     align-content: start;
   }
 
-  /* Kartu — hanya thumbnail kotak, tanpa judul */
+  /* Kartu — display:block wajib agar padding-bottom trick jalan */
   .film-card {
-    display: flex;
-    flex-direction: column;
-    height: auto;
-    min-width: 0;
+    display: block;
     border-radius: 8px;
     border: 1px solid var(--border2);
     overflow: hidden;
-    margin-bottom: 0;
     background: var(--bg3);
   }
   .film-card:active {
@@ -1546,12 +1542,12 @@ html, body {
     background: var(--bg4);
   }
 
-  /* Info bar (judul) disembunyikan di grid mobile */
+  /* Judul disembunyikan */
   .fc-info {
     display: none;
   }
 
-  /* Thumbnail kotak 1:1 — padding-bottom trick agar reliable di Chrome mobile */
+  /* Thumbnail kotak 1:1 — padding-bottom% dihitung dari lebar block parent, bukan flex */
   .fc-thumb {
     width: 100%;
     height: 0;
@@ -1559,7 +1555,7 @@ html, body {
     position: relative;
     overflow: hidden;
     background: var(--bg4);
-    border-radius: 0;
+    display: block;
   }
   .fc-thumb img {
     position: absolute;
