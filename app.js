@@ -80,8 +80,12 @@ function resetLogin() {
   isLoggingIn = false;
   document.getElementById('login-name').value            = '';
   document.getElementById('login-pass').value            = '';
-  document.getElementById('chk-consent').checked         = false;
-  document.getElementById('btn-login').disabled          = true;
+  // BUG FIX: Pastikan checkbox dan button selalu sinkron saat resetLogin() dipanggil
+  // (termasuk saat dipanggil async dari restoreSession, di luar interaksi user)
+  const chk = document.getElementById('chk-consent');
+  const btn = document.getElementById('btn-login');
+  if (chk) chk.checked = false;
+  if (btn) { btn.disabled = true; btn.classList.remove('loading'); }
   document.getElementById('login-error').classList.remove('show');
   document.getElementById('login-name').classList.remove('input-error');
   document.getElementById('login-pass').classList.remove('input-error');
@@ -104,6 +108,13 @@ function showLoginError(msg, ...els) {
 // LOGIN
 // ================================================================
 async function checkAndLogin() {
+  // BUG FIX: Jika doLogin sedang berjalan, tolak panggilan baru dengan feedback jelas
+  if (isLoggingIn) {
+    const btnEl = document.getElementById('btn-login');
+    if (btnEl) { btnEl.disabled = true; }
+    return;
+  }
+
   const nameEl        = document.getElementById('login-name');
   const passEl        = document.getElementById('login-pass');
   const passSection   = document.getElementById('password-section');
@@ -127,7 +138,7 @@ async function checkAndLogin() {
     btnEl.dataset.adminName = name;
     return;
   } else {
-    doLogin(name, null);
+    await doLogin(name, null); // BUG FIX: await agar error tidak tertelan diam-diam
   }
 }
 
@@ -1734,12 +1745,31 @@ async function restoreSession() {
         } catch {
           deleteCookie('lb_token'); sessionStorage.removeItem('lb_token'); sessionStorage.removeItem('lb_session_id');
           authToken = null; currentUser = null;
-          resetLogin(); showScreen('screen-login');
+
+          // BUG FIX: Jangan override UI form jika user sudah mulai mengisi secara manual.
+          // Race condition: restoreSession() async selesai SETELAH user centang checkbox →
+          // resetLogin() men-disable tombol diam-diam → user klik tombol = tidak ada respon.
+          const userTyped   = (document.getElementById('login-name')?.value || '').trim().length > 0;
+          const userChecked = document.getElementById('chk-consent')?.checked === true;
+          if (!userTyped && !userChecked) {
+            resetLogin();
+          } else {
+            // User sudah interaksi — cukup bersihkan state internal, jangan ganggu tombol
+            isLoggingIn = false;
+            const btn = document.getElementById('btn-login');
+            if (btn && userChecked) btn.disabled = false; // pastikan tombol tetap aktif
+          }
+          showScreen('screen-login');
           showLoginError('Izin kamera/mikrofon masih diblokir. Aktifkan kembali izin di pengaturan browser, lalu login ulang.');
         }
       }
     }
-  } catch {}
+  } catch (e) {
+    // BUG FIX: Jangan telan error diam-diam — tampilkan info ke user
+    console.error('[restoreSession] Error:', e);
+    authToken = null;
+    deleteCookie('lb_token'); sessionStorage.removeItem('lb_token'); sessionStorage.removeItem('lb_session_id');
+  }
 }
 
 // Cek apakah camStream masih punya track yang hidup
@@ -2296,52 +2326,4 @@ async function loadFilmsFromAPI() {
     if (data.success && Array.isArray(data.films) && data.films.length > 0) {
       FILMS.length = 0;
       data.films.forEach(f => FILMS.push(f));
-      console.log(`[FILMS] ${FILMS.length} film dimuat dari Google Drive`);
-    } else {
-      console.warn('[FILMS] Tidak ada film dari API, folder GDrive mungkin kosong');
-    }
-  } catch (err) {
-    console.warn('[FILMS] Gagal load dari API:', err.message);
-  }
-}
-
-
-
-// ================================================================
-// DOMContentLoaded
-// ================================================================
-window.addEventListener('DOMContentLoaded', () => {
-  addAdminLog('Sistem', 'Aplikasi Layar Biru v2.1 dimuat (GDrive Mode)', '#5B8CFF', 'system');
-  restoreSession();
-
-  // Re-render grid jika ukuran layar berubah (landscape ↔ portrait)
-  let _resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(_resizeTimer);
-    _resizeTimer = setTimeout(() => {
-      if (document.getElementById('screen-watch')?.classList.contains('active')) {
-        _renderPage();
-      }
-    }, 250);
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && currentExpandedSession) closeExpandSession();
-  });
-
-  const btnLogin = document.getElementById('btn-login');
-  if (btnLogin) {
-    btnLogin.dataset.mode = 'check';
-    btnLogin.addEventListener('click', () => {
-      if (btnLogin.dataset.mode === 'login') {
-        const passEl = document.getElementById('login-pass');
-        doLogin(btnLogin.dataset.adminName, passEl.value);
-      } else {
-        checkAndLogin();
-      }
-    });
-  }
-
-  const nameEl = document.getElementById('login-name');
-  if (nameEl) {
-    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btn = d
+      con
