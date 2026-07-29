@@ -1820,8 +1820,8 @@ async function doRevokedLogout() {
 let currentPlayingId = null; // id film yang sedang diputar
 
 // ── Pagination state ──────────────────────────────────────────
-const FILMS_PER_PAGE_DESKTOP = 20;
-const FILMS_PER_PAGE_MOBILE  = 20;
+const FILMS_PER_PAGE_DESKTOP = 24;
+const FILMS_PER_PAGE_MOBILE  = 24;
 let   filmCurrentPage        = 1;
 
 function getFilmsPerPage() {
