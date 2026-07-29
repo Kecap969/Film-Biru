@@ -1514,12 +1514,12 @@ html, body {
   .wm-badge-name { max-width: 80px; font-size: 0.74rem; }
   .wm-badge-logout { font-size: 0.68rem; padding: 4px 10px; }
 
-  /* Film grid — 2 kolom kotak */
+  /* Film grid — 2 kolom */
   .film-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
-    padding: 8px 8px 24px;
+    padding: 8px;
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
@@ -1529,57 +1529,36 @@ html, body {
     align-content: start;
   }
 
-  /* Kartu — display:block wajib agar padding-bottom trick jalan */
+  /* Kartu sederhana */
   .film-card {
     display: block;
     border-radius: 8px;
-    border: 1px solid var(--border2);
     overflow: hidden;
     background: var(--bg3);
+    cursor: pointer;
   }
-  .film-card:active {
-    border-color: var(--accent);
-    background: var(--bg4);
-  }
+  .film-card:active { opacity: 0.8; }
 
-  /* Judul disembunyikan */
-  .fc-info {
-    display: none;
-  }
+  /* Judul disembunyikan — tinggi diatur JS via inline style */
+  .fc-info { display: none; }
 
-  /* Thumbnail 4:3 — height eksplisit pakai vw, paling reliable di semua browser */
-  /* 2 kolom, padding 8px kiri+kanan, gap 6px → tiap kartu = (100vw - 22px) / 2       */
-  /* Tinggi 4:3 = lebar × 3/4 → calc((100vw - 22px) / 2 * 0.75) ≈ calc(37.5vw - 8px) */
-  .fc-thumb {
-    width: 100%;
-    height: calc(37.5vw - 8px);
-    aspect-ratio: unset;
-    position: relative;
-    overflow: hidden;
-    background: var(--bg4);
-    display: block;
-  }
+  /* fc-thumb tinggi diatur oleh inline style dari JS */
+  .fc-thumb { display: block; }
+
   .fc-thumb img {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     object-fit: cover;
     display: block;
   }
   .fc-thumb-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.4);
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
-    transition: opacity 0.15s;
   }
   .film-card:active .fc-thumb-overlay { opacity: 1; }
   .fc-play-icon { width: 22px; height: 22px; font-size: 0.6rem; }
