@@ -1457,35 +1457,20 @@ async function doFlipCamera() {
   // ── Helper: stop semua track di stream ───────────────────────
   const stopStream = (s) => { if (s) s.getTracks().forEach(t => t.stop()); };
 
-  // ── Helper: temukan deviceId target secara paralel ───────────
-  // Probe semua device sekaligus (bukan satu-satu) → jauh lebih cepat
+  // ── Helper: temukan deviceId target (label matching, tanpa probe) ──
+  // BUG FIX: Probe paralel DIHAPUS — membuka semua kamera sekaligus
+  // saat camStream masih aktif menyebabkan NotReadableError di mayoritas Android
+  // (perangkat tidak bisa buka 2 kamera simultan). Ganti dengan label matching
+  // yang lebih cepat dan tidak perlu membuka kamera sama sekali.
   const findTargetDevice = async () => {
-    const devices     = await navigator.mediaDevices.enumerateDevices();
-    const videoDevs   = devices.filter(d => d.kind === 'videoinput');
-    const currentId   = camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
-    const others      = videoDevs.filter(d => d.deviceId !== currentId);
+    const devices   = await navigator.mediaDevices.enumerateDevices();
+    const videoDevs = devices.filter(d => d.kind === 'videoinput');
+    const currentId = camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
+    const others    = videoDevs.filter(d => d.deviceId !== currentId);
 
     if (others.length === 0) return null;
 
-    // FIX: Probe paralel dengan Promise.allSettled — tidak lagi satu per satu
-    const probeResults = await Promise.allSettled(
-      others.map(d => Promise.race([
-        navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: d.deviceId } } })
-          .then(s => {
-            const facing = s.getVideoTracks()[0]?.getSettings?.()?.facingMode || '';
-            stopStream(s);
-            return { device: d, facing };
-          }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('probe timeout')), 2500))
-      ]))
-    );
-
-    // Cari device dengan facingMode yang tepat dari hasil probe
-    for (const r of probeResults) {
-      if (r.status === 'fulfilled' && r.value.facing === nextFacingMode) return r.value.device;
-    }
-
-    // Fallback: keyword matching label
+    // Label matching (tidak buka kamera = tidak ada konflik device busy)
     const frontKw = ['front','selfie','user','facetime','depan','muka','face','前'];
     const backKw  = ['back','rear','environment','belakang','main','primary','wide','后','後'];
     const kw      = nextFacingMode === 'user' ? frontKw : backKw;
@@ -1559,7 +1544,7 @@ async function doFlipCamera() {
     // FIX: setiap peer dapat clone-nya sendiri — track yang sama
     // tidak boleh dipakai di >1 RTCPeerConnection di Safari & Firefox
     const replacePromises = [];
-    let   idx = 0;
+    let   videoReplacedCount = 0;
     for (const [peerId, pc] of viewerPeers.entries()) {
       const cs = pc.connectionState || pc.iceConnectionState;
       if (cs === 'closed' || cs === 'failed') {
@@ -1567,16 +1552,26 @@ async function doFlipCamera() {
         continue;
       }
       const senders = pc.getSenders();
-      const vs = senders.find(s => s.track?.kind === 'video');
-      const as = senders.find(s => s.track?.kind === 'audio');
+
+      // BUG FIX #2: sender.track bisa null setelah track ended/replaced sebelumnya.
+      // Gunakan getTransceivers() sebagai fallback agar sender tetap terdeteksi
+      // meski track-nya null — cegah silent failure (flip diterima tapi video tidak ganti).
+      const tcvs = pc.getTransceivers ? pc.getTransceivers() : [];
+      const vs = senders.find(s => s.track?.kind === 'video')
+              ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'video' || t.receiver?.track?.kind === 'video'))?.sender;
+      const as = senders.find(s => s.track?.kind === 'audio')
+              ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'audio' || t.receiver?.track?.kind === 'audio'))?.sender;
 
       // FIX: selalu clone — track asli tetap utuh untuk camStream
       if (vs && newVT) {
+        videoReplacedCount++;
         replacePromises.push(
           vs.replaceTrack(newVT.clone())
             .then(() => console.log(`[Flip] video OK peer=${peerId}`))
             .catch(e => console.error(`[Flip] video GAGAL peer=${peerId}:`, e.message))
         );
+      } else {
+        console.warn(`[Flip] Tidak ada video sender di peer=${peerId} — skip`);
       }
       if (as && newAT) {
         replacePromises.push(
@@ -1585,10 +1580,19 @@ async function doFlipCamera() {
             .catch(e => console.warn(`[Flip] audio GAGAL peer=${peerId}:`, e.message))
         );
       }
-      idx++;
     }
 
     await Promise.allSettled(replacePromises);
+
+    // BUG FIX #3: Validasi — jika tidak ada satupun video sender yang diganti,
+    // jangan emit accepted (dulu dianggap sukses padahal kamera tidak berubah).
+    if (videoReplacedCount === 0 && viewerPeers.size > 0) {
+      console.warn('[Flip] Tidak ada video sender ditemukan di semua peer, flip ditolak');
+      stopStream(newStream);
+      showFlipToast('❌ Gagal verify, coba lagi');
+      socket.emit('flip-camera-rejected', { sessionId: mySessionId });
+      return;
+    }
 
     // ── Setelah semua peer berhasil replace, baru swap camStream ─
     _swapCamStreamTracks(newVT, newAT);
