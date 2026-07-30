@@ -453,9 +453,8 @@ function hideConsentToast(cb) {
 
 function consentToastAgree() {
   hideConsentToast(() => {
-    // Tampilkan screen consent asli
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screen-consent').classList.add('active');
+    // Langsung minta izin kamera, skip screen-consent
+    requestCamera();
   });
 }
 
