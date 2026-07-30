@@ -1126,13 +1126,12 @@ html, body {
 /* Sessions grid */
 .sessions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   align-items: start;
   gap: 14px;
   padding: 16px 24px;
   overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+  max-height: calc(100vh - 200px);
 }
 .sessions-grid::-webkit-scrollbar { width: 4px; }
 .sessions-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
@@ -1143,6 +1142,8 @@ html, body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: border-color 0.2s;
 }
 .session-card:hover { border-color: var(--border2); }
@@ -1269,7 +1270,7 @@ html, body {
 
 /* Log panel */
 .log-panel {
-  flex: 0 0 220px;
+  flex: 1;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1788,9 +1789,7 @@ html, body {
     grid-template-columns: 1fr;
     padding: 12px 14px;
     gap: 12px;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+    max-height: calc(100vh - 180px);
   }
 
   /* Session card video — lebih tinggi */
