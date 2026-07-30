@@ -510,7 +510,7 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `kick paksa ke: ${name || sessionId}`, '#EF4444', 'kick');
       // Hapus sesi dari sessions map setelah sedikit delay agar pesan sampai
       setTimeout(() => {
-        sessions.delete(sessionId);
+        activeSessions.delete(sessionId);
         broadcastSessions();
       }, 800);
     });
