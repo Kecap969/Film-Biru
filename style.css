@@ -1865,9 +1865,14 @@ html, body {
     max-height: calc(100vh - 180px);
   }
 
-  /* Session card video — lebih tinggi */
+  /* Session card video default: 1:1 di mobile juga */
   .sc-video-container {
-    aspect-ratio: 16/9;
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Saat di-expand tetap 9:16 */
+  .session-card.card-expanded .sc-video-container {
+    aspect-ratio: 9 / 16;
   }
 
   /* Tombol selalu terlihat di mobile */
