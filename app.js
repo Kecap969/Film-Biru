@@ -418,10 +418,22 @@ function _ensureAdminCard(sessionId, user) {
       <div class="sc-video-container">
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
       </div>
-      <div class="sc-controls">
-        <button class="sc-btn refresh-btn" onclick="refreshVideo('${sessionId}')" title="Refresh Video">🔄</button>
-        <button class="sc-btn expand-btn" onclick="expandSession('${sessionId}')" title="Perbesar">⛶</button>
-        <button class="sc-btn warn-btn" onclick="warnSession('${sessionId}')" title="Kirim Peringatan">⚠️</button>
+      <div class="sc-controls sc-controls-default" id="ctrl-default-${sessionId}">
+        <button class="sc-btn view-btn" onclick="toggleCardExpand('${sessionId}')">👁 View</button>
+      </div>
+      <div class="sc-controls-expanded" id="ctrl-expanded-${sessionId}" style="display:none;">
+        <div class="sc-color-btns">
+          <button class="sc-color-btn" style="background:#EF4444;" onclick="setCardColor('${sessionId}','#EF4444')" title="Merah"></button>
+          <button class="sc-color-btn" style="background:#F59E0B;" onclick="setCardColor('${sessionId}','#F59E0B')" title="Kuning"></button>
+          <button class="sc-color-btn" style="background:#10B981;" onclick="setCardColor('${sessionId}','#10B981')" title="Hijau"></button>
+          <button class="sc-color-btn" style="background:#3B82F6;" onclick="setCardColor('${sessionId}','#3B82F6')" title="Biru"></button>
+          <button class="sc-color-btn" style="background:#8B5CF6;" onclick="setCardColor('${sessionId}','#8B5CF6')" title="Ungu"></button>
+          <button class="sc-color-btn sc-color-reset" onclick="setCardColor('${sessionId}',null)" title="Reset">✕</button>
+        </div>
+        <div class="sc-action-btns">
+          <button class="sc-btn sc-btn-flip" onclick="flipCameraRequest('${sessionId}')">🔄 Flip</button>
+          <button class="sc-btn sc-btn-close" onclick="toggleCardExpand('${sessionId}')">✕ Tutup</button>
+        </div>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
@@ -923,6 +935,29 @@ function refreshVideo(sessionId) {
     adminAudioMeters.delete(sessionId);
     setupPeerConnection_Admin(sessionId, peer.user);
     if (btn) { btn.textContent = '🔄'; btn.disabled = false; }
+  }
+}
+
+// Toggle tampilan expand card admin — View / Tutup
+function toggleCardExpand(sessionId) {
+  const defCtrl = document.getElementById(`ctrl-default-${sessionId}`);
+  const expCtrl = document.getElementById(`ctrl-expanded-${sessionId}`);
+  if (!defCtrl || !expCtrl) return;
+  const isOpen = expCtrl.style.display !== 'none';
+  defCtrl.style.display = isOpen ? 'flex'  : 'none';
+  expCtrl.style.display = isOpen ? 'none'  : 'flex';
+}
+
+// Warnai border card berdasarkan pilihan warna admin
+function setCardColor(sessionId, color) {
+  const card = document.getElementById(`card-${sessionId}`);
+  if (!card) return;
+  if (color) {
+    card.style.borderColor = color;
+    card.style.boxShadow  = `0 0 0 2px ${color}55`;
+  } else {
+    card.style.borderColor = '';
+    card.style.boxShadow  = '';
   }
 }
 
