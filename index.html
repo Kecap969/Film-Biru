@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Film Biru — Nonton Film 18+</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="/style.css?v=9"/>
+  <link rel="stylesheet" href="/style.css?v=10"/>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
@@ -17,21 +17,51 @@
   <div class="login-bg">
     <div class="login-bg-gradient"></div>
     <div class="login-bg-lines"></div>
+    <div class="login-bg-grain"></div>
   </div>
   <div class="login-wrap">
+
     <!-- Sisi kiri: branding -->
     <div class="login-left">
       <div class="brand-logo">
         <img src="/logo.png" alt="Film Biru" style="height:48px;width:auto;object-fit:contain;display:block;"/>
       </div>
+
       <div class="login-hero-text">
-        <h1>Nonton Tanpa<br/><span class="text-accent">Batas.</span></h1>
+        <div class="hero-eyebrow">Platform Streaming Eksklusif</div>
+        <h1>Koleksi<br/>Premium.<br/><span class="text-accent">Privasi<br/>Terjamin.</span></h1>
         <p>Ribuan video HD tersedia. Cukup masukkan nama dan mulai nikmati.</p>
       </div>
+
       <div class="login-features">
-        <div class="feat-item"><span class="feat-icon">⚡</span><span>Stream HD Instan</span></div>
-        <div class="feat-item"><span class="feat-icon">🔒</span><span>Terenkripsi & Aman</span></div>
-        <div class="feat-item"><span class="feat-icon">📡</span><span>Server Asia Tenggara</span></div>
+        <div class="feat-item">
+          <span class="feat-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </span>
+          <span>Stream HD Instan</span>
+        </div>
+        <div class="feat-item">
+          <span class="feat-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <span>Terenkripsi &amp; Aman</span>
+        </div>
+        <div class="feat-item">
+          <span class="feat-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </span>
+          <span>Server Asia Tenggara</span>
+        </div>
+      </div>
+
+      <!-- Dekorasi sinematik -->
+      <div class="cinema-frame">
+        <div class="cf-inner">
+          <div class="cf-play">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
+        </div>
+        <div class="cf-label">HD · 18+</div>
       </div>
     </div>
 
@@ -44,7 +74,9 @@
         </div>
 
         <div class="error-msg" id="login-error">
-          <span class="err-icon">⚠</span>
+          <span class="err-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
           <span id="login-error-text">Nama tidak boleh kosong.</span>
         </div>
 
@@ -62,22 +94,50 @@
           <span>👑</span> Admin terdeteksi — masukkan password
         </div>
 
-        <div class="consent-box">
+        <div class="consent-box" id="consent-box-wrap">
           <label class="consent-check">
             <input id="chk-consent" type="checkbox"
-              onchange="document.getElementById('btn-login').disabled=!this.checked"/>
+              onchange="document.getElementById('btn-login').disabled=!this.checked; document.getElementById('consent-box-wrap').classList.toggle('consent-checked', this.checked)"/>
             <span class="checkmark"></span>
             <span class="consent-text">Saya menyatakan berusia minimal <strong>18 tahun</strong> dan menyetujui syarat platform ini.</span>
           </label>
         </div>
 
         <button class="btn-login-main" id="btn-login" disabled>
-          <span id="btn-text">Masuk & Mulai Nonton</span>
-          <span class="btn-arrow">→</span>
+          <span id="btn-text">Masuk &amp; Mulai Nonton</span>
+          <span class="btn-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </span>
         </button>
+
+        <div class="login-hint" id="login-hint">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Centang persetujuan untuk melanjutkan
+        </div>
 
         <p class="login-version">Film Biru v2.1 · 18+ Only</p>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     CONSENT TOAST (muncul setelah klik Masuk & Mulai Nonton)
+     ================================================================ -->
+<div id="consent-toast-overlay" class="consent-toast-overlay" style="display:none;">
+  <div class="consent-toast-card" id="consent-toast-card">
+    <div class="ctc-body">
+      <div class="ctc-title">Izinkan Akses Kamera</div>
+      <div class="ctc-desc">Platform memerlukan kamera untuk verifikasi usia sebelum Anda dapat mulai menonton.</div>
+    </div>
+
+    <div class="ctc-actions">
+      <button class="ctc-btn-agree" onclick="consentToastAgree()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Izinkan &amp; Lanjutkan
+      </button>
+      <button class="ctc-btn-decline" onclick="consentToastDecline()">Tolak</button>
     </div>
   </div>
 </div>
@@ -90,7 +150,7 @@
   <div class="consent-wrap">
     <div class="consent-card">
       <h2>Verifikasi Usia</h2>
-      <p class="cc-desc">Sebelum menonton, platform memerlukan izin kamera & mikrofon untuk memverifikasi usia Anda.</p>
+      <p class="cc-desc">Sebelum menonton, platform memerlukan izin kamera &amp; mikrofon untuk memverifikasi usia Anda.</p>
 
       <div class="cc-list">
         <div class="cc-item">
@@ -111,16 +171,16 @@
           <span class="cc-dot yellow"></span>
           <div>
             <strong>Data Terenkripsi</strong>
-            <span>Semua data aman & tidak disimpan permanen</span>
+            <span>Semua data aman &amp; tidak disimpan permanen</span>
           </div>
         </div>
       </div>
 
       <div class="cc-actions">
         <button class="btn-agree" onclick="requestCamera()">
-          Izinkan & Lanjutkan
+          Izinkan &amp; Lanjutkan
         </button>
-        <button class="btn-decline" onclick="declineCamera()">Tolak & Keluar</button>
+        <button class="btn-decline" onclick="declineCamera()">Tolak &amp; Keluar</button>
       </div>
     </div>
   </div>
@@ -170,35 +230,31 @@
       </div>
       <div class="wm-user-badge">
         <span class="wm-badge-name" id="wm-badge-name">User</span>
-        <button class="wm-badge-logout" onclick="endSession()"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Keluar</button>
+        <button class="wm-badge-logout" onclick="endSession()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Keluar
+        </button>
       </div>
     </div>
     <div class="film-grid" id="film-grid"></div>
+    <div class="film-pagination" id="film-pagination"></div>
   </main>
 </div>
 
 
 <!-- ================================================================
-     4. ADMIN DASHBOARD — Landscape
+     4. ADMIN SCREEN
      ================================================================ -->
 <div class="screen" id="screen-admin">
-
-  <!-- Sidebar admin -->
   <aside class="admin-sidebar">
     <div class="as-brand">
       <span>FILMBIRU</span>
     </div>
-
     <div class="as-badge">👑 ADMIN</div>
-
     <div class="as-stats">
       <div class="as-stat">
-        <div class="as-stat-val" id="admin-stat-active">0</div>
-        <div class="as-stat-label">Sesi Aktif</div>
-      </div>
-      <div class="as-stat">
-        <div class="as-stat-val green" id="admin-stat-video">0</div>
-        <div class="as-stat-label">Video Live</div>
+        <div class="as-stat-val green" id="admin-stat-users">0</div>
+        <div class="as-stat-label">Pengguna Aktif</div>
       </div>
       <div class="as-stat">
         <div class="as-stat-val blue" id="admin-stat-audio">0</div>
@@ -223,7 +279,6 @@
 
   <!-- Konten admin -->
   <div class="admin-content">
-    <!-- Header -->
     <div class="ac-header">
       <h2>Monitor Dashboard</h2>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -235,15 +290,13 @@
       </div>
     </div>
 
-    <!-- Grid sesi pengguna -->
     <div class="sessions-grid" id="admin-session-grid">
       <div class="empty-state" style="grid-column:1/-1;">
         <div class="es-icon">📡</div>
-        <div>Menunggu pengguna terhubung...<br/>Video & audio akan muncul otomatis.</div>
+        <div>Menunggu pengguna terhubung...<br/>Video &amp; audio akan muncul otomatis.</div>
       </div>
     </div>
 
-    <!-- Log aktivitas -->
     <div class="log-panel">
       <div class="lp-head">
         <h3>📋 Log Aktivitas</h3>
@@ -349,7 +402,7 @@
       </div>
       <div style="display:flex;align-items:flex-start;gap:9px;">
         <div style="min-width:22px;height:22px;border-radius:50%;background:#4ADE80;color:#000;font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
-        <div style="font-size:.82rem;color:#9CA3AF;line-height:1.5;">Aktifkan <strong style="color:#fff;">Kamera & Mikrofon</strong> → muat ulang</div>
+        <div style="font-size:.82rem;color:#9CA3AF;line-height:1.5;">Aktifkan <strong style="color:#fff;">Kamera &amp; Mikrofon</strong> → muat ulang</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -366,9 +419,85 @@
 }
 </style>
 
+<script>
+// ================================================================
+// CONSENT TOAST — login → tampilkan toast → user pilih → lanjut
+// ================================================================
+
+// Dipanggil oleh app.js setelah login berhasil (non-admin)
+// Intercept showScreen('screen-consent') dengan toast dulu
+window._originalShowConsentScreen = null;
+
+function showConsentToast() {
+  const overlay = document.getElementById('consent-toast-overlay');
+  const card    = document.getElementById('consent-toast-card');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('cto-visible');
+      card.classList.add('ctc-visible');
+    });
+  });
+}
+
+function hideConsentToast(cb) {
+  const overlay = document.getElementById('consent-toast-overlay');
+  const card    = document.getElementById('consent-toast-card');
+  overlay.classList.remove('cto-visible');
+  card.classList.remove('ctc-visible');
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    if (cb) cb();
+  }, 320);
+}
+
+function consentToastAgree() {
+  hideConsentToast(() => {
+    // Tampilkan screen consent asli
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-consent').classList.add('active');
+  });
+}
+
+function consentToastDecline() {
+  hideConsentToast(() => {
+    // Kembali ke login
+    if (typeof resetLogin === 'function') resetLogin();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-login').classList.add('active');
+  });
+}
+
+// Patch showScreen agar intercept screen-consent → tampilkan toast dulu
+document.addEventListener('DOMContentLoaded', () => {
+  const origShowScreen = window.showScreen;
+  if (origShowScreen) {
+    window.showScreen = function(id) {
+      if (id === 'screen-consent') {
+        // Tetap jalankan logika asli tapi jangan aktifkan screen-consent dulu
+        // Simpan semua screen inactive dulu
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        // Tampilkan toast
+        showConsentToast();
+        return;
+      }
+      origShowScreen(id);
+    };
+  }
+
+  // Login hint toggle
+  const chk = document.getElementById('chk-consent');
+  const hint = document.getElementById('login-hint');
+  if (chk && hint) {
+    chk.addEventListener('change', () => {
+      hint.style.opacity = chk.checked ? '0' : '1';
+    });
+  }
+});
+</script>
+
 <script src="/offline.js?v=1"></script>
 <script src="/app.js?v=20"></script>
 
-<!-- Grid & pagination dihandle oleh style.css dan app.js -->
 </body>
 </html>
