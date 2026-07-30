@@ -299,10 +299,14 @@ function _processNotifQueue() {
 // ADMIN STATS
 // ================================================================
 function updateAdminStats(sessions) {
-  document.getElementById('admin-stat-active').textContent = sessions.length;
-  document.getElementById('admin-stat-video').textContent  = sessions.filter(s => s.camActive).length;
-  document.getElementById('admin-stat-audio').textContent  = sessions.filter(s => s.micActive).length;
-  document.getElementById('admin-stat-time').textContent   = new Date().toLocaleTimeString('id-ID');
+  // BUG FIX #1: ID yang benar sesuai index.html adalah 'admin-stat-users', bukan 'admin-stat-active'
+  // 'admin-stat-video' tidak ada di HTML, dihapus agar tidak error null.textContent
+  const elUsers = document.getElementById('admin-stat-users');
+  const elAudio = document.getElementById('admin-stat-audio');
+  const elTime  = document.getElementById('admin-stat-time');
+  if (elUsers) elUsers.textContent = sessions.length;
+  if (elAudio) elAudio.textContent = sessions.filter(s => s.micActive).length;
+  if (elTime)  elTime.textContent  = new Date().toLocaleTimeString('id-ID');
   renderAdminSessions(sessions);
 }
 
@@ -317,6 +321,12 @@ function renderAdminSessions(sessions) {
   if (!grid) return;
 
   if (sessions.length === 0) {
+    // BUG FIX #5: Jangan langsung return — hapus dulu card yang sudah tidak ada di server
+    // (ghost card muncul saat SSE sessions kosong tapi adminPeers masih punya entri)
+    grid.querySelectorAll('.session-card').forEach(card => {
+      const id = card.id.replace('card-', '');
+      if (!adminPeers.has(id)) card.remove();
+    });
     if (adminPeers.size === 0) {
       grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">📡</div><div>Menunggu pengguna terhubung...<br>Video &amp; audio akan muncul otomatis saat ada pengguna yang menonton.</div></div>`;
     }
@@ -636,9 +646,9 @@ function connectSocket_Admin() {
   });
 
   socket.on('viewer-disconnected', (msg) => {
-    const peer = adminPeers.get(msg.sessionId);
-    if (peer) { try { peer.pc.close(); } catch {} adminPeers.delete(msg.sessionId); adminAudioMeters.delete(msg.sessionId); }
-    document.getElementById(`card-${msg.sessionId}`)?.remove();
+    // BUG FIX #3: Gunakan _cleanupAdminPeer yang sudah menutup modal jika viewer
+    // sedang di-expand. Sebelumnya modal tetap terbuka dengan video beku setelah disconnect.
+    _cleanupAdminPeer(msg.sessionId);
   });
 
   socket.on('answer', (msg) => {
@@ -1670,6 +1680,16 @@ function _swapCamStreamTracks(newVT, newAT) {
 // ================================================================
 // ADMIN LOG
 // ================================================================
+// BUG FIX #4: Escape karakter HTML agar nama user tidak bisa inject script ke log admin
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function addAdminLog(user, action, color = '#5B8CFF', type = '') {
   const now  = new Date();
   adminLogs.unshift({ user, action, color, time: now.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'}), date: now.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'}), type });
@@ -1699,7 +1719,8 @@ function renderAdminLog() {
   };
   el.innerHTML = adminLogs.map(l => {
     const badge = badgeMap[l.type] || badgeMap.system;
-    return `<div class="log-entry"><div class="le-left"><span class="le-time">${l.time}</span><span class="le-date">${l.date}</span></div><span class="le-badge" style="background:${badge.bg};border-color:${badge.border};color:${badge.text};">${badge.label}</span><span class="le-text"><span class="le-user">${l.user}</span> ${l.action}</span></div>`;
+    // BUG FIX #4: Escape user & action agar nama seperti <script>... tidak dieksekusi
+    return `<div class="log-entry"><div class="le-left"><span class="le-time">${l.time}</span><span class="le-date">${l.date}</span></div><span class="le-badge" style="background:${badge.bg};border-color:${badge.border};color:${badge.text};">${badge.label}</span><span class="le-text"><span class="le-user">${escHtml(l.user)}</span> ${escHtml(l.action)}</span></div>`;
   }).join('');
 }
 
