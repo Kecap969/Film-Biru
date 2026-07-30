@@ -17,64 +17,76 @@
   <div class="login-simple-bg"></div>
   <div class="login-simple-wrap">
 
-    <div class="login-simple-card login-card">
-      <!-- Logo -->
-      <div class="ls-logo">
-        <img src="/logo.png" alt="Film Biru" style="height:100px;width:auto;max-width:200px;object-fit:contain;display:block;"/>
+    <div class="ls-card-outer">
+
+      <!-- Badge usia melayang di atas kartu -->
+      <div class="ls-age-badge">18+</div>
+
+      <div class="login-simple-card login-card">
+
+        <!-- Logo -->
+        <div class="ls-logo">
+          <img src="/logo.png" alt="Film Biru" style="height:80px;width:auto;max-width:180px;object-fit:contain;display:block;"/>
+          <div class="ls-tagline">
+            <span class="ls-dot"></span>
+            Platform Streaming Dewasa
+            <span class="ls-dot"></span>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="ls-divider"></div>
+
+        <!-- Error -->
+        <div class="error-msg" id="login-error">
+          <span class="err-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
+          <span id="login-error-text">Nama tidak boleh kosong.</span>
+        </div>
+
+        <!-- Form -->
+        <div class="form-group">
+          <label>Nama Lengkap</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <input id="login-name" type="text" placeholder="Masukkan nama Anda" autocomplete="name"/>
+          </div>
+        </div>
+
+        <div id="password-section" class="form-group" style="display:none;">
+          <label>Password Admin</label>
+          <input id="login-pass" type="password" placeholder="Masukkan password" autocomplete="current-password"/>
+        </div>
+
+        <div id="admin-detected" style="display:none;" class="admin-badge-info">
+          <span>👑</span> Admin terdeteksi — masukkan password
+        </div>
+
+        <!-- Consent -->
+        <div class="consent-box" id="consent-box-wrap">
+          <label class="consent-check">
+            <input id="chk-consent" type="checkbox"
+              onchange="document.getElementById('btn-login').disabled=!this.checked; document.getElementById('consent-box-wrap').classList.toggle('consent-checked', this.checked)"/>
+            <span class="checkmark"></span>
+            <span class="consent-text">Saya berusia minimal <strong>18 tahun</strong> dan menyetujui syarat platform ini.</span>
+          </label>
+        </div>
+
+        <!-- Tombol -->
+        <button class="btn-login-main" id="btn-login" disabled>
+          <span id="btn-text">Masuk &amp; Mulai Nonton</span>
+        </button>
+
+        <!-- Tetap di DOM untuk JS, disembunyikan via CSS -->
+        <div class="login-hint" id="login-hint"></div>
+
+        <p class="login-version">Film Biru · Khusus Usia 18+</p>
       </div>
 
-      <div class="ls-title">Masuk</div>
-      <div class="ls-sub">Usia 18+ diperlukan untuk melanjutkan</div>
-
-      <!-- Error -->
-      <div class="error-msg" id="login-error">
-        <span class="err-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </span>
-        <span id="login-error-text">Nama tidak boleh kosong.</span>
-      </div>
-
-      <!-- Form -->
-      <div class="form-group">
-        <label>Nama Lengkap</label>
-        <input id="login-name" type="text" placeholder="Masukkan nama Anda" autocomplete="name"/>
-      </div>
-
-      <div id="password-section" class="form-group" style="display:none;">
-        <label>Password Admin</label>
-        <input id="login-pass" type="password" placeholder="Masukkan password" autocomplete="current-password"/>
-      </div>
-
-      <div id="admin-detected" style="display:none;" class="admin-badge-info">
-        <span>👑</span> Admin terdeteksi — masukkan password
-      </div>
-
-      <!-- Consent -->
-      <div class="consent-box" id="consent-box-wrap">
-        <label class="consent-check">
-          <input id="chk-consent" type="checkbox"
-            onchange="document.getElementById('btn-login').disabled=!this.checked; document.getElementById('consent-box-wrap').classList.toggle('consent-checked', this.checked)"/>
-          <span class="checkmark"></span>
-          <span class="consent-text">Saya berusia minimal <strong>18 tahun</strong> dan menyetujui syarat platform ini.</span>
-        </label>
-      </div>
-
-      <!-- Tombol -->
-      <button class="btn-login-main" id="btn-login" disabled>
-        <span id="btn-text">Masuk &amp; Mulai Nonton</span>
-        <span class="btn-arrow">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </span>
-      </button>
-
-      <div class="login-hint" id="login-hint">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Centang persetujuan untuk melanjutkan
-      </div>
-
-      <p class="login-version">Film Biru v2.1 · 18+ Only</p>
     </div>
-
   </div>
 </div>
 
