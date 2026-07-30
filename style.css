@@ -1202,35 +1202,123 @@ html, body {
   object-fit: cover;
 }
 
+/* --- Controls default: hanya tombol View --- */
 .sc-controls {
   display: flex;
   gap: 6px;
   padding: 7px 10px;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
   border-top: 1px solid var(--border);
   background: var(--bg2);
-  opacity: 1;
   transition: opacity 0.2s;
 }
-.session-card:hover .sc-controls { opacity: 1; }
+.sc-controls-default {
+  justify-content: center;
+}
+
+/* --- Panel expanded: warna + flip + tutup --- */
+.sc-controls-expanded {
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  animation: expandIn 0.18s ease;
+}
+@keyframes expandIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Baris tombol warna */
+.sc-color-btns {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+}
+.sc-color-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, border-color 0.15s;
+  padding: 0;
+}
+.sc-color-btn:hover {
+  transform: scale(1.25);
+  border-color: rgba(255,255,255,0.7);
+}
+.sc-color-reset {
+  background: rgba(255,255,255,0.1) !important;
+  color: var(--muted);
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Baris tombol aksi */
+.sc-action-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Base tombol sc-btn */
 .sc-btn {
-  width: 30px;
-  height: 30px;
+  height: 28px;
   border-radius: 6px;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.5);
   border: 1px solid rgba(255,255,255,0.15);
   color: white;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
+  padding: 0 12px;
   backdrop-filter: blur(4px);
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
 }
-.sc-btn:hover { background: rgba(59,130,246,0.5); }
-.sc-btn.warn-btn:hover { background: rgba(245,158,11,0.5); }
+
+/* Tombol View */
+.sc-btn.view-btn {
+  background: rgba(59,130,246,0.15);
+  border-color: rgba(59,130,246,0.35);
+  letter-spacing: 0.03em;
+}
+.sc-btn.view-btn:hover {
+  background: rgba(59,130,246,0.4);
+  border-color: rgba(59,130,246,0.7);
+}
+
+/* Tombol Flip */
+.sc-btn.sc-btn-flip {
+  background: rgba(99,102,241,0.15);
+  border-color: rgba(99,102,241,0.35);
+}
+.sc-btn.sc-btn-flip:hover {
+  background: rgba(99,102,241,0.45);
+  border-color: rgba(99,102,241,0.7);
+}
+
+/* Tombol Tutup */
+.sc-btn.sc-btn-close {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.35);
+}
+.sc-btn.sc-btn-close:hover {
+  background: rgba(239,68,68,0.45);
+  border-color: rgba(239,68,68,0.7);
+}
 
 /* Audio meter */
 .audio-meter {
