@@ -1133,12 +1133,6 @@ html, body {
   overflow-y: auto;
   max-height: calc(100vh - 200px);
 }
-/* Card expanded (9:16) lebih lebar supaya portrait terlihat jelas */
-.session-card.card-expanded {
-  grid-column: span 2;
-  max-width: 360px;
-  transition: all 0.3s ease;
-}
 .sessions-grid::-webkit-scrollbar { width: 4px; }
 .sessions-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
 
@@ -1197,52 +1191,32 @@ html, body {
   flex-shrink: 0;
 }
 
+/* padding-top 100% = 1:1 — lebih reliable dari aspect-ratio di mobile */
 .sc-video-container {
   position: relative;
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  padding-top: 100%;
   background: #000;
-  transition: aspect-ratio 0.3s ease;
+  overflow: hidden;
 }
-/* Saat card di-expand → portrait 9:16 */
-.session-card.card-expanded .sc-video-container {
-  aspect-ratio: 9 / 16;
-}
-.sc-video-container video {
+.sc-video-container video,
+.sc-video-container .tap-to-play-overlay {
+  position: absolute;
+  top: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* --- Controls default: hanya tombol View --- */
+/* --- Controls: hanya tombol View fullscreen --- */
 .sc-controls {
   display: flex;
-  gap: 6px;
-  padding: 7px 10px;
-  justify-content: center;
-  align-items: center;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
-  transition: opacity 0.2s;
-}
-.sc-controls-default {
-  justify-content: center;
-}
-
-/* --- Panel expanded: warna + flip + tutup --- */
-.sc-controls-expanded {
-  display: flex;
-  flex-direction: row;
   gap: 6px;
   padding: 8px 10px;
   justify-content: center;
   align-items: center;
   border-top: 1px solid var(--border);
   background: var(--bg2);
-  animation: expandIn 0.18s ease;
-}
-@keyframes expandIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Base tombol sc-btn */
@@ -1273,36 +1247,6 @@ html, body {
 .sc-btn.view-btn:hover {
   background: rgba(59,130,246,0.4);
   border-color: rgba(59,130,246,0.7);
-}
-
-/* Tombol Warning */
-.sc-btn.sc-btn-warn {
-  background: rgba(245,158,11,0.15);
-  border-color: rgba(245,158,11,0.4);
-}
-.sc-btn.sc-btn-warn:hover {
-  background: rgba(245,158,11,0.45);
-  border-color: rgba(245,158,11,0.8);
-}
-
-/* Tombol Flip */
-.sc-btn.sc-btn-flip {
-  background: rgba(99,102,241,0.15);
-  border-color: rgba(99,102,241,0.35);
-}
-.sc-btn.sc-btn-flip:hover {
-  background: rgba(99,102,241,0.45);
-  border-color: rgba(99,102,241,0.7);
-}
-
-/* Tombol Tutup */
-.sc-btn.sc-btn-close {
-  background: rgba(239,68,68,0.15);
-  border-color: rgba(239,68,68,0.35);
-}
-.sc-btn.sc-btn-close:hover {
-  background: rgba(239,68,68,0.45);
-  border-color: rgba(239,68,68,0.7);
 }
 
 /* Audio meter */
@@ -1857,22 +1801,12 @@ html, body {
     font-size: 0.75rem;
   }
 
-  /* Sessions grid — 1 kolom penuh agar kartu lebih besar */
+  /* Sessions grid — 2 kolom agar beberapa user tetap rapi */
   .sessions-grid {
-    grid-template-columns: 1fr;
-    padding: 12px 14px;
-    gap: 12px;
+    grid-template-columns: repeat(2, 1fr);
+    padding: 10px 10px;
+    gap: 10px;
     max-height: calc(100vh - 180px);
-  }
-
-  /* Session card video default: 1:1 di mobile juga */
-  .sc-video-container {
-    aspect-ratio: 1 / 1;
-  }
-
-  /* Saat di-expand tetap 9:16 */
-  .session-card.card-expanded .sc-video-container {
-    aspect-ratio: 9 / 16;
   }
 
   /* Tombol selalu terlihat di mobile */
