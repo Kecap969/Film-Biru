@@ -1126,12 +1126,18 @@ html, body {
 /* Sessions grid */
 .sessions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   align-items: start;
   gap: 14px;
   padding: 16px 24px;
   overflow-y: auto;
   max-height: calc(100vh - 200px);
+}
+/* Card expanded (9:16) lebih lebar supaya portrait terlihat jelas */
+.session-card.card-expanded {
+  grid-column: span 2;
+  max-width: 360px;
+  transition: all 0.3s ease;
 }
 .sessions-grid::-webkit-scrollbar { width: 4px; }
 .sessions-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
@@ -1193,8 +1199,13 @@ html, body {
 
 .sc-video-container {
   position: relative;
-  aspect-ratio: 16/10;
+  aspect-ratio: 1 / 1;
   background: #000;
+  transition: aspect-ratio 0.3s ease;
+}
+/* Saat card di-expand → portrait 9:16 */
+.session-card.card-expanded .sc-video-container {
+  aspect-ratio: 9 / 16;
 }
 .sc-video-container video {
   width: 100%;
@@ -1219,9 +1230,12 @@ html, body {
 
 /* --- Panel expanded: warna + flip + tutup --- */
 .sc-controls-expanded {
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  padding: 8px 10px;
+  justify-content: center;
+  align-items: center;
   border-top: 1px solid var(--border);
   background: var(--bg2);
   animation: expandIn 0.18s ease;
@@ -1229,44 +1243,6 @@ html, body {
 @keyframes expandIn {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Baris tombol warna */
-.sc-color-btns {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  justify-content: center;
-}
-.sc-color-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.15);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.15s, border-color 0.15s;
-  padding: 0;
-}
-.sc-color-btn:hover {
-  transform: scale(1.25);
-  border-color: rgba(255,255,255,0.7);
-}
-.sc-color-reset {
-  background: rgba(255,255,255,0.1) !important;
-  color: var(--muted);
-  font-size: 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Baris tombol aksi */
-.sc-action-btns {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Base tombol sc-btn */
@@ -1293,11 +1269,20 @@ html, body {
 .sc-btn.view-btn {
   background: rgba(59,130,246,0.15);
   border-color: rgba(59,130,246,0.35);
-  letter-spacing: 0.03em;
 }
 .sc-btn.view-btn:hover {
   background: rgba(59,130,246,0.4);
   border-color: rgba(59,130,246,0.7);
+}
+
+/* Tombol Warning */
+.sc-btn.sc-btn-warn {
+  background: rgba(245,158,11,0.15);
+  border-color: rgba(245,158,11,0.4);
+}
+.sc-btn.sc-btn-warn:hover {
+  background: rgba(245,158,11,0.45);
+  border-color: rgba(245,158,11,0.8);
 }
 
 /* Tombol Flip */
