@@ -422,18 +422,9 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn view-btn" onclick="toggleCardExpand('${sessionId}')">👁 View</button>
       </div>
       <div class="sc-controls-expanded" id="ctrl-expanded-${sessionId}" style="display:none;">
-        <div class="sc-color-btns">
-          <button class="sc-color-btn" style="background:#EF4444;" onclick="setCardColor('${sessionId}','#EF4444')" title="Merah"></button>
-          <button class="sc-color-btn" style="background:#F59E0B;" onclick="setCardColor('${sessionId}','#F59E0B')" title="Kuning"></button>
-          <button class="sc-color-btn" style="background:#10B981;" onclick="setCardColor('${sessionId}','#10B981')" title="Hijau"></button>
-          <button class="sc-color-btn" style="background:#3B82F6;" onclick="setCardColor('${sessionId}','#3B82F6')" title="Biru"></button>
-          <button class="sc-color-btn" style="background:#8B5CF6;" onclick="setCardColor('${sessionId}','#8B5CF6')" title="Ungu"></button>
-          <button class="sc-color-btn sc-color-reset" onclick="setCardColor('${sessionId}',null)" title="Reset">✕</button>
-        </div>
-        <div class="sc-action-btns">
-          <button class="sc-btn sc-btn-flip" onclick="flipCameraRequest('${sessionId}')">🔄 Flip</button>
-          <button class="sc-btn sc-btn-close" onclick="toggleCardExpand('${sessionId}')">✕ Tutup</button>
-        </div>
+        <button class="sc-btn sc-btn-warn" onclick="warnSession('${sessionId}')">⚠️ Warning</button>
+        <button class="sc-btn sc-btn-flip" onclick="flipCameraRequest('${sessionId}')">🔄 Flip</button>
+        <button class="sc-btn sc-btn-close" onclick="toggleCardExpand('${sessionId}')">✕ Tutup</button>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
@@ -956,18 +947,6 @@ function toggleCardExpand(sessionId) {
   }
 }
 
-// Warnai border card berdasarkan pilihan warna admin
-function setCardColor(sessionId, color) {
-  const card = document.getElementById(`card-${sessionId}`);
-  if (!card) return;
-  if (color) {
-    card.style.borderColor = color;
-    card.style.boxShadow  = `0 0 0 2px ${color}55`;
-  } else {
-    card.style.borderColor = '';
-    card.style.boxShadow  = '';
-  }
-}
 
 function flipCameraRequest(sessionId) {
   if (!sessionId) return;
