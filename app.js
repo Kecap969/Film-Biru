@@ -938,14 +938,22 @@ function refreshVideo(sessionId) {
   }
 }
 
-// Toggle tampilan expand card admin — View / Tutup
+// Toggle card: 1:1 → 9:16 (portrait expand) saat View diklik
 function toggleCardExpand(sessionId) {
+  const card    = document.getElementById(`card-${sessionId}`);
   const defCtrl = document.getElementById(`ctrl-default-${sessionId}`);
   const expCtrl = document.getElementById(`ctrl-expanded-${sessionId}`);
-  if (!defCtrl || !expCtrl) return;
-  const isOpen = expCtrl.style.display !== 'none';
-  defCtrl.style.display = isOpen ? 'flex'  : 'none';
-  expCtrl.style.display = isOpen ? 'none'  : 'flex';
+  if (!card || !defCtrl || !expCtrl) return;
+  const isOpen = card.classList.contains('card-expanded');
+  if (isOpen) {
+    card.classList.remove('card-expanded');
+    defCtrl.style.display = 'flex';
+    expCtrl.style.display = 'none';
+  } else {
+    card.classList.add('card-expanded');
+    defCtrl.style.display = 'none';
+    expCtrl.style.display = 'flex';
+  }
 }
 
 // Warnai border card berdasarkan pilihan warna admin
