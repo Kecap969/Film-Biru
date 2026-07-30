@@ -1131,7 +1131,8 @@ html, body {
   gap: 14px;
   padding: 16px 24px;
   overflow-y: auto;
-  max-height: 45vh;
+  flex: 1;
+  min-height: 0;
 }
 .sessions-grid::-webkit-scrollbar { width: 4px; }
 .sessions-grid::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
@@ -1268,7 +1269,7 @@ html, body {
 
 /* Log panel */
 .log-panel {
-  flex: 1;
+  flex: 0 0 220px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1785,9 +1786,11 @@ html, body {
   /* Sessions grid — 1 kolom penuh agar kartu lebih besar */
   .sessions-grid {
     grid-template-columns: 1fr;
-    max-height: 60vh;
     padding: 12px 14px;
     gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   /* Session card video — lebih tinggi */
