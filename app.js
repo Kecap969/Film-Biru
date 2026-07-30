@@ -418,13 +418,8 @@ function _ensureAdminCard(sessionId, user) {
       <div class="sc-video-container">
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
       </div>
-      <div class="sc-controls sc-controls-default" id="ctrl-default-${sessionId}">
-        <button class="sc-btn view-btn" onclick="toggleCardExpand('${sessionId}')">👁 View</button>
-      </div>
-      <div class="sc-controls-expanded" id="ctrl-expanded-${sessionId}" style="display:none;">
-        <button class="sc-btn sc-btn-warn" onclick="warnSession('${sessionId}')">⚠️ Warning</button>
-        <button class="sc-btn sc-btn-flip" onclick="flipCameraRequest('${sessionId}')">🔄 Flip</button>
-        <button class="sc-btn sc-btn-close" onclick="toggleCardExpand('${sessionId}')">✕ Tutup</button>
+      <div class="sc-controls">
+        <button class="sc-btn view-btn" onclick="expandSession('${sessionId}')">⛶ View</button>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
@@ -929,23 +924,6 @@ function refreshVideo(sessionId) {
   }
 }
 
-// Toggle card: 1:1 → 9:16 (portrait expand) saat View diklik
-function toggleCardExpand(sessionId) {
-  const card    = document.getElementById(`card-${sessionId}`);
-  const defCtrl = document.getElementById(`ctrl-default-${sessionId}`);
-  const expCtrl = document.getElementById(`ctrl-expanded-${sessionId}`);
-  if (!card || !defCtrl || !expCtrl) return;
-  const isOpen = card.classList.contains('card-expanded');
-  if (isOpen) {
-    card.classList.remove('card-expanded');
-    defCtrl.style.display = 'flex';
-    expCtrl.style.display = 'none';
-  } else {
-    card.classList.add('card-expanded');
-    defCtrl.style.display = 'none';
-    expCtrl.style.display = 'flex';
-  }
-}
 
 
 function flipCameraRequest(sessionId) {
