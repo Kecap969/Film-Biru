@@ -1449,9 +1449,10 @@ function showKickOverlay(title, message) {
     overlay.style.transition = 'opacity 0.25s';
     setTimeout(() => {
       overlay.remove();
-      // Paksa logout & kembali ke login
-      if (typeof endSession === 'function') {
-        endSession();
+      // Paksa logout langsung — TANPA dialog konfirmasi (stopSession, bukan endSession)
+      // Cookie, sessionStorage, dan token dibersihkan di dalam stopSession()
+      if (typeof stopSession === 'function') {
+        stopSession(false);
       } else {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         const loginScreen = document.getElementById('screen-login');
