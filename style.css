@@ -1127,6 +1127,7 @@ html, body {
 .sessions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-items: start;
   gap: 14px;
   padding: 16px 24px;
   overflow-y: auto;
