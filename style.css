@@ -96,7 +96,9 @@ html, body {
 .ls-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 8px 0 4px;
 }
 
 .ls-title {
