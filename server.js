@@ -572,9 +572,11 @@ app.post('/api/login', async (req, res) => {
       addServerLog('Sistem', 'Login admin gagal — password salah', '#F2716B', 'error');
       return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Password admin salah.' });
     }
-    const token = jwt.sign({ name: 'Admin', initial: 'YZ', role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
+    // BUG FIX #2: Pakai ADMIN_USER.name & ADMIN_USER.initial, bukan hardcode 'Admin'/'YZ'
+    // Sebelumnya env var ADMIN_NAME dan initial 'AL' diabaikan → avatar/nama selalu salah
+    const token = jwt.sign({ name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
     addServerLog('Admin', 'login sebagai admin', '#5B8CFF', 'login');
-    return res.json({ success: true, token, user: { name: 'Admin', initial: 'YZ', role: 'admin' } });
+    return res.json({ success: true, token, user: { name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' } });
   }
 
   const initial = generateInitial(trimmedName);
