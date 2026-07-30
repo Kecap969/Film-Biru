@@ -417,11 +417,11 @@ function _ensureAdminCard(sessionId, user) {
       </div>
       <div class="sc-video-container">
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
-        <div class="sc-controls">
-          <button class="sc-btn refresh-btn" onclick="refreshVideo('${sessionId}')" title="Refresh Video">🔄</button>
-          <button class="sc-btn expand-btn" onclick="expandSession('${sessionId}')" title="Perbesar">⛶</button>
-          <button class="sc-btn warn-btn" onclick="warnSession('${sessionId}')" title="Kirim Peringatan">⚠️</button>
-        </div>
+      </div>
+      <div class="sc-controls">
+        <button class="sc-btn refresh-btn" onclick="refreshVideo('${sessionId}')" title="Refresh Video">🔄</button>
+        <button class="sc-btn expand-btn" onclick="expandSession('${sessionId}')" title="Perbesar">⛶</button>
+        <button class="sc-btn warn-btn" onclick="warnSession('${sessionId}')" title="Kirim Peringatan">⚠️</button>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
