@@ -430,6 +430,7 @@ function _ensureAdminCard(sessionId, user) {
       </div>
       <div class="sc-controls">
         <button class="sc-btn view-btn" onclick="expandSession('${sessionId}')">⛶ View</button>
+        <button class="sc-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')">⚡ Kick</button>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
@@ -960,6 +961,18 @@ async function warnSession(sessionId) {
   }
 }
 
+// Kick paksa — kirim pesan kick lalu hapus sesi pengguna
+function kickSession(sessionId, userName) {
+  if (!sessionId) return;
+  if (!confirm(`Kick pengguna "${userName || sessionId}"?\n\nPengguna akan melihat pesan kick dan diarahkan ke halaman login.`)) return;
+  if (socket) {
+    socket.emit('force-kick-viewer', { sessionId, name: userName });
+  }
+  addAdminLog(userName || sessionId, 'dikick oleh admin', '#EF4444', 'kick');
+  // Cleanup peer & card di sisi admin setelah sedikit delay
+  setTimeout(() => _cleanupAdminPeer(sessionId), 1000);
+}
+
 // Bug 4 fix: fungsi cleanup adminPeers & card di sisi admin setelah kick
 function _cleanupAdminPeer(sessionId) {
   const peer = adminPeers.get(sessionId);
@@ -1345,6 +1358,12 @@ function connectSocket_Viewer() {
     showFlipPermissionDialog();
   });
   socket.on('warn-viewer', () => { showWarningOverlay(); });
+  socket.on('force-kicked', ({ title, message } = {}) => {
+    showKickOverlay(
+      title   || 'Anda Keluar',
+      message || 'Ruangan anda gelap, website tidak bisa memverifikasi usia anda. harap anda berada di ruangan terang agar verifikasi usia berjalan.'
+    );
+  });
   socket.on('disconnect', (reason) => {
     console.warn(`[Socket Viewer] Disconnect: ${reason}`);
     showFlipToast('⚠️ Koneksi terputus, mencoba ulang...');
@@ -1390,6 +1409,56 @@ function showWarningOverlay() {
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+// ================================================================
+// KICK OVERLAY — tampil saat admin paksa keluarkan pengguna
+// ================================================================
+function showKickOverlay(title, message) {
+  // Hentikan semua aktivitas kamera/media
+  try {
+    if (typeof stopMonitorCameraPermission === 'function') stopMonitorCameraPermission();
+    if (window._localStream) {
+      window._localStream.getTracks().forEach(t => t.stop());
+      window._localStream = null;
+    }
+  } catch {}
+
+  let overlay = document.getElementById('kick-overlay');
+  if (overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'kick-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(5,7,14,0.93);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML = `
+    <div style="background:#161D34;border:1.5px solid rgba(239,68,68,0.4);border-radius:20px;padding:36px 28px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.7),0 0 0 1px rgba(239,68,68,0.08);">
+      <div style="width:60px;height:60px;border-radius:50%;background:rgba(239,68,68,0.12);border:1.5px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:1.8rem;">🚫</div>
+      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#EF4444;margin:0 0 14px;letter-spacing:0.05em;">${title}</h3>
+      <div style="background:#0D1326;border:1px solid rgba(239,68,68,0.18);border-radius:12px;padding:14px 16px;margin-bottom:24px;">
+        <p style="font-size:0.875rem;color:#C8CDE0;margin:0;line-height:1.75;text-align:left;">${message}</p>
+      </div>
+      <button id="kick-overlay-ok"
+        style="width:100%;padding:14px;border-radius:10px;font-size:0.95rem;font-weight:700;background:linear-gradient(135deg,#EF4444,#B91C1C);border:none;color:#fff;cursor:pointer;letter-spacing:0.03em;box-shadow:0 4px 14px rgba(239,68,68,0.35);">
+        OK, Tutup
+      </button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById('kick-overlay-ok').addEventListener('click', () => {
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.25s';
+    setTimeout(() => {
+      overlay.remove();
+      // Paksa logout & kembali ke login
+      if (typeof endSession === 'function') {
+        endSession();
+      } else {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        const loginScreen = document.getElementById('screen-login');
+        if (loginScreen) loginScreen.classList.add('active');
+      }
+    }, 260);
+  });
 }
 
 // ================================================================

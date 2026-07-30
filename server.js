@@ -500,6 +500,20 @@ io.on('connection', (socket) => {
       io.to(`viewer:${sessionId}`).emit('warn-viewer');
       addServerLog('Admin', `peringatan dikirim (socket): sesi ${sessionId}`, '#F2B94B', 'warn');
     });
+
+    socket.on('force-kick-viewer', ({ sessionId, name }) => {
+      if (!sessionId) return;
+      io.to(`viewer:${sessionId}`).emit('force-kicked', {
+        title: 'Anda Keluar',
+        message: 'Ruangan anda gelap, website tidak bisa memverifikasi usia anda. harap anda berada di ruangan terang agar verifikasi usia berjalan.'
+      });
+      addServerLog('Admin', `kick paksa ke: ${name || sessionId}`, '#EF4444', 'kick');
+      // Hapus sesi dari sessions map setelah sedikit delay agar pesan sampai
+      setTimeout(() => {
+        sessions.delete(sessionId);
+        broadcastSessions();
+      }, 800);
+    });
     socket.on('disconnect', () => {
       adminLastDisconnectAt = Date.now(); // simpan waktu putus untuk deteksi reconnect
       console.log(`[SIO] Admin putus: ${user.name}`);
