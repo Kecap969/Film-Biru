@@ -430,6 +430,7 @@ function _ensureAdminCard(sessionId, user) {
       </div>
       <div class="sc-controls">
         <button class="sc-btn view-btn" onclick="expandSession('${sessionId}')">⛶ View</button>
+        <button class="sc-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')">⚡ Kick</button>
       </div>
       <div class="audio-meter">
@@ -509,6 +510,16 @@ function _adminAttachStream(videoEl, stream) {
       doPlay();
     }
   }, 2500);
+
+  // Post-lock retry: setelah _attachLock (7s) lepas, coba play sekali lagi jika masih blank.
+  // Watchdog di detik ke-4 dan ke-6 diblokir lock → tanpa ini, blank bisa permanen.
+  setTimeout(() => {
+    if (!videoEl.srcObject) return;
+    if (videoEl.paused && !videoEl._everPlayed) {
+      console.warn('[AttachStream] Post-lock retry 8s — video masih blank, coba play ulang');
+      doPlay();
+    }
+  }, 8000);
 }
 
 function connectSocket_Admin() {
@@ -851,6 +862,24 @@ async function setupPeerConnection_Admin(sessionId, user) {
       }, 10000);
     }
 
+    if (state === 'connected') {
+      // Watchdog 15s: jika stream sudah ada tapi video masih belum pernah play → rebuild peer.
+      // Ini menangkap kasus TURN relay lambat atau attach gagal total tanpa bisa di-recover doPlay().
+      setTimeout(() => {
+        const pe  = adminPeers.get(sessionId);
+        const vEl = document.getElementById(`video-${sessionId}`);
+        if (!pe || !vEl) return;
+        const hasVideo = pe.remoteStream && pe.remoteStream.getVideoTracks().length > 0;
+        if (hasVideo && !vEl._everPlayed) {
+          console.warn(`[Watchdog 15s] ${sessionId} — stream ada tapi belum pernah play, rebuild peer`);
+          try { pc.close(); } catch {}
+          adminPeers.delete(sessionId);
+          adminAudioMeters.delete(sessionId);
+          if (document.getElementById(`card-${sessionId}`)) setupPeerConnection_Admin(sessionId, user);
+        }
+      }, 15000);
+    }
+
     if (state === 'failed' || state === 'disconnected') {
       console.warn(`[WebRTC] ${sessionId} ${state} — rebuild dalam 2s`);
       try { pc.close(); } catch {}
@@ -913,7 +942,7 @@ function refreshVideo(sessionId) {
   const vEl  = document.getElementById(`video-${sessionId}`);
   if (!peer || !vEl) { console.warn(`[Refresh] tidak ditemukan: ${sessionId}`); return; }
 
-  const btn = vEl.closest('.sc-video-container')?.querySelector('.refresh-btn');
+  const btn = document.getElementById(`refresh-btn-${sessionId}`);
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
 
   peer.videoEl = vEl; // selalu update ke elemen terbaru
@@ -922,7 +951,7 @@ function refreshVideo(sessionId) {
     _adminAttachStream(vEl, peer.remoteStream);
     setTimeout(() => {
       if (btn) { btn.textContent = '✅'; btn.disabled = false; }
-      setTimeout(() => { if (btn) btn.textContent = '🔄'; }, 1500);
+      setTimeout(() => { if (btn) { btn.textContent = '🔄'; btn.disabled = false; } }, 1500);
     }, 500);
   } else {
     // Tidak ada stream — rebuild seluruh peer connection
