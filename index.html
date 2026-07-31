@@ -14,9 +14,7 @@
      1. LOGIN
      ================================================================ -->
 <div class="screen active" id="screen-login">
-  <div class="login-simple-bg">
-    <div class="login-bg-overlay"></div>
-  </div>
+  <div class="login-simple-bg"></div>
   <div class="login-simple-wrap">
 
     <div class="ls-card-outer">
@@ -25,6 +23,11 @@
       <div class="ls-age-badge">18+</div>
 
       <div class="login-simple-card login-card">
+
+        <!-- Sampul gambar slideshow di atas card -->
+        <div class="card-cover">
+          <div class="card-cover-overlay"></div>
+        </div>
 
         <!-- Logo -->
         <div class="ls-logo">
@@ -470,89 +473,78 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="/app.js?v=20"></script>
 
 <script>
-/* ── Login Background Slideshow ────────────────────────────────
-   Fetch daftar gambar dari /api/backgrounds lalu putar crossfade.
-   Jika folder kosong / error, halaman tetap jalan normal.
+/* ── Login Cover Slideshow ─────────────────────────────────────
+   Gambar tampil sebagai sampul di atas card login (bukan full layar).
+   Fetch dari /api/backgrounds, crossfade antar gambar.
    ──────────────────────────────────────────────────────────── */
 (function () {
-  const DISPLAY_MS  = 6000;   // durasi tiap gambar tampil (ms)
-  const FADE_MS     = 1800;   // durasi fade (harus sama dengan CSS transition)
+  const DISPLAY_MS = 6000;  // durasi tiap gambar (ms)
+  const FADE_MS    = 1800;  // durasi fade — harus sama dengan CSS transition
 
-  async function initBgSlideshow() {
+  async function initCoverSlideshow() {
     try {
       const res  = await fetch('/api/backgrounds');
       const data = await res.json();
       if (!data.images || data.images.length === 0) return;
 
       const images = data.images;
-      const bg     = document.querySelector('.login-simple-bg');
-      if (!bg) return;
+      const cover  = document.querySelector('.card-cover');
+      if (!cover) return;
 
-      // Buat dua slide untuk ping-pong crossfade
+      // Dua slide untuk ping-pong crossfade
       const slideA = document.createElement('div');
       const slideB = document.createElement('div');
       slideA.className = 'bg-slide';
       slideB.className = 'bg-slide';
 
       // Sisipkan SEBELUM overlay agar overlay tetap di atas
-      const overlay = bg.querySelector('.login-bg-overlay');
-      bg.insertBefore(slideA, overlay);
-      bg.insertBefore(slideB, overlay);
+      const overlay = cover.querySelector('.card-cover-overlay');
+      cover.insertBefore(slideA, overlay);
+      cover.insertBefore(slideB, overlay);
 
-      // Preload & tampilkan gambar pertama
       let idx     = 0;
       let active  = slideA;
       let standby = slideB;
 
       function loadImage(slide, src) {
         return new Promise(resolve => {
-          const img = new Image();
+          const img   = new Image();
           img.onload  = () => { slide.style.backgroundImage = `url('${src}')`; resolve(); };
           img.onerror = () => resolve(); // skip gambar rusak
           img.src = src;
         });
       }
 
-      // Mulai dengan gambar pertama
+      // Tampilkan gambar pertama
       await loadImage(slideA, images[0]);
       slideA.classList.add('active');
 
-      if (images.length === 1) return; // cukup satu gambar, tidak perlu timer
+      if (images.length === 1) return; // satu gambar, tidak perlu timer
 
-      // Preload gambar berikutnya di background
-      let nextIdx = (idx + 1) % images.length;
+      // Preload gambar berikutnya
+      let nextIdx = 1;
       loadImage(standby, images[nextIdx]);
 
-      setInterval(async () => {
-        // Fade masuk standby
+      setInterval(() => {
         standby.classList.add('active');
-
-        // Setelah fade selesai, fade keluar active lama
         setTimeout(() => {
           active.classList.remove('active');
-
-          // Swap referensi
           const tmp = active;
           active  = standby;
           standby = tmp;
-
-          // Preload gambar berikutnya di slide yang baru saja keluar
           idx     = nextIdx;
           nextIdx = (idx + 1) % images.length;
           loadImage(standby, images[nextIdx]);
         }, FADE_MS);
       }, DISPLAY_MS);
 
-    } catch (e) {
-      // Gagal diam-diam — halaman tetap berjalan
-    }
+    } catch (e) { /* gagal diam-diam */ }
   }
 
-  // Jalankan setelah DOM siap
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBgSlideshow);
+    document.addEventListener('DOMContentLoaded', initCoverSlideshow);
   } else {
-    initBgSlideshow();
+    initCoverSlideshow();
   }
 })();
 </script>
