@@ -434,10 +434,10 @@ function _ensureAdminCard(sessionId, user) {
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
       </div>
       <div class="sc-controls">
-        <button class="sc-btn view-btn" onclick="expandSession('${sessionId}')">⛶ View</button>
-        <button class="sc-btn bw-btn" id="bw-btn-${sessionId}" onclick="toggleBW('${sessionId}')" title="Mode Hitam Putih — bantu lihat di ruangan gelap">🌙 B&W</button>
-        <button class="sc-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
-        <button class="sc-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')">⚡ Kick</button>
+        <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
+        <button class="sc-btn sc-icon-btn bw-btn" id="bw-btn-${sessionId}" onclick="toggleBW('${sessionId}')" title="Mode Hitam Putih — bantu lihat di ruangan gelap">🌙</button>
+        <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
+        <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
       <div class="audio-meter">
         <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
@@ -1057,10 +1057,10 @@ function expandSession(sessionId) {
   const vmBwBtn = document.getElementById('vm-bw-btn');
   if (bwSessions.has(sessionId)) {
     vmVideo.style.filter = 'grayscale(1) brightness(2) contrast(1.2)';
-    if (vmBwBtn) { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '\u2600\uFE0F Warna'; }
+    if (vmBwBtn) { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '\u2600\uFE0F'; }
   } else {
     vmVideo.style.filter = '';
-    if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '\uD83C\uDF19 B&W'; }
+    if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '\uD83C\uDF19'; }
   }
 
   document.getElementById('video-modal').classList.add('active');
@@ -1079,7 +1079,7 @@ function closeExpandSession() {
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
   const vmBwBtn = document.getElementById('vm-bw-btn');
-  if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙 B&W'; }
+  if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙'; }
   currentExpandedSession = null;
 }
 
@@ -2601,7 +2601,7 @@ function toggleBW(sessionId) {
     if (videoEl) videoEl.style.filter = '';
     if (btnEl) {
       btnEl.classList.remove('bw-active');
-      btnEl.innerHTML = '🌙 B&W';
+      btnEl.innerHTML = '🌙';
       btnEl.title = 'Mode Hitam Putih — bantu lihat di ruangan gelap';
     }
     // Sync ke modal jika sedang terbuka
@@ -2609,7 +2609,7 @@ function toggleBW(sessionId) {
       const vmVideo  = document.getElementById('vm-video');
       const vmBwBtn  = document.getElementById('vm-bw-btn');
       if (vmVideo)  vmVideo.style.filter = '';
-      if (vmBwBtn)  { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙 B&W'; }
+      if (vmBwBtn)  { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙'; }
     }
     addAdminLog(
       document.getElementById(`card-${sessionId}`)?.querySelector('.sc-name')?.textContent || sessionId,
@@ -2621,7 +2621,7 @@ function toggleBW(sessionId) {
     if (videoEl) videoEl.style.filter = BW_FILTER;
     if (btnEl) {
       btnEl.classList.add('bw-active');
-      btnEl.innerHTML = '☀️ Warna';
+      btnEl.innerHTML = '☀️';
       btnEl.title = 'Klik untuk kembali ke mode warna';
     }
     // Sync ke modal jika sedang terbuka
@@ -2629,7 +2629,7 @@ function toggleBW(sessionId) {
       const vmVideo  = document.getElementById('vm-video');
       const vmBwBtn  = document.getElementById('vm-bw-btn');
       if (vmVideo)  vmVideo.style.filter = BW_FILTER;
-      if (vmBwBtn)  { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '☀️ Warna'; }
+      if (vmBwBtn)  { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '☀️'; }
     }
     addAdminLog(
       document.getElementById(`card-${sessionId}`)?.querySelector('.sc-name')?.textContent || sessionId,
