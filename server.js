@@ -365,8 +365,12 @@ io.on('connection', (socket) => {
 
         let sessionFound = false;
         for (const [, s] of activeSessions) {
-          if (s.id === sessionId) { sessionFound = true; break; }
-          // Fallback: cocokkan berdasarkan nama user jika sessionId belum ada
+          if (s.id === sessionId) {
+            socket._sessionId = s.id; // FIX: set eksplisit, tidak hanya andalkan nilai dari registrasi
+            sessionFound = true;
+            break;
+          }
+          // Fallback: cocokkan berdasarkan nama user jika sessionId belum ada (misal setelah server restart)
           if (s.user && s.user.name === user.name) {
             socket._sessionId = s.id;
             sessionFound = true;
@@ -375,13 +379,20 @@ io.on('connection', (socket) => {
           }
         }
 
-        if (sessionFound || attempt >= 8) {
-          _emitConnectedDone = true; // tandai sudah selesai — stop semua retry berikutnya
+        // FIX: Naikkan batas retry dari 8 ke 15 (6 detik total).
+        // Sebelumnya 8 × 400ms = 3.2 detik — terlalu singkat jika server sedang sibuk
+        // atau koneksi viewer lambat. Dengan 15 retry ada margin lebih untuk /api/session/start
+        // yang lambat tanpa langsung emit viewer-connected dengan session yang mungkin belum siap.
+        if (sessionFound || attempt >= 15) {
+          _emitConnectedDone = true;
           const finalSessionId = socket._sessionId;
+          if (!sessionFound) {
+            console.warn(`[SIO] Session ${sessionId} tidak ditemukan setelah 15 retry — emit paksa untuk ${user.name}`);
+          }
           io.to('admins').emit('viewer-connected', { sessionId: finalSessionId, user });
           console.log(`[SIO] Viewer terhubung: ${user.name} (${finalSessionId}) attempt=${attempt}`);
         } else {
-          console.warn(`[SIO] SessionId ${sessionId} belum ada, retry ${attempt}/8`);
+          console.warn(`[SIO] SessionId ${sessionId} belum ada, retry ${attempt}/15`);
           setTimeout(() => tryEmitConnected(attempt + 1), 400);
         }
       };
