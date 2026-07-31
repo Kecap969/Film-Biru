@@ -1354,6 +1354,73 @@ html, body {
   transform: scale(0.96);
 }
 
+/* ── Tombol B&W / Night Vision ── */
+.sc-btn.bw-btn {
+  background: rgba(107,114,128,0.12);
+  border-color: rgba(107,114,128,0.35);
+  color: #9CA3AF;
+}
+.sc-btn.bw-btn:hover {
+  background: rgba(107,114,128,0.3);
+  border-color: rgba(107,114,128,0.65);
+  color: #fff;
+}
+/* State aktif: warna emas/kuning terang (seperti senter malam) */
+.sc-btn.bw-btn.bw-active {
+  background: rgba(234,179,8,0.15);
+  border-color: rgba(234,179,8,0.55);
+  color: #FCD34D;
+}
+.sc-btn.bw-btn.bw-active:hover {
+  background: rgba(234,179,8,0.3);
+  border-color: rgba(234,179,8,0.8);
+  color: #FBBF24;
+}
+/* Pulse animasi saat ruangan gelap baru terdeteksi */
+@keyframes bwPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(107,114,128,0.6); }
+  50%      { box-shadow: 0 0 0 5px rgba(107,114,128,0); }
+}
+.sc-btn.bw-btn.bw-suggest {
+  animation: bwPulse 0.7s ease-out 3;
+  border-color: rgba(107,114,128,0.7);
+  color: #D1D5DB;
+}
+
+/* ── Badge "Ruangan Gelap" di session card ── */
+.dark-room-badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  background: rgba(31,41,55,0.85);
+  border: 1px solid rgba(107,114,128,0.4);
+  color: #9CA3AF;
+  border-radius: 4px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+/* ── Tombol B&W di modal expand ── */
+.vm-btn.bw-modal-btn {
+  color: #9CA3AF;
+  border-color: rgba(107,114,128,0.35);
+}
+.vm-btn.bw-modal-btn:hover {
+  border-color: rgba(107,114,128,0.65);
+  color: #D1D5DB;
+}
+.vm-btn.bw-modal-btn.bw-active {
+  color: #FCD34D;
+  border-color: rgba(234,179,8,0.55);
+  background: rgba(234,179,8,0.1);
+}
+.vm-btn.bw-modal-btn.bw-active:hover {
+  background: rgba(234,179,8,0.2);
+  border-color: rgba(234,179,8,0.8);
+}
+
 /* Audio meter */
 .audio-meter {
   padding: 8px 12px;
