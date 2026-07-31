@@ -1105,8 +1105,8 @@ function buildCamConstraints(facingMode) {
   return {
     video: {
       facingMode: facingMode || 'environment',
-      width:       { ideal: 854,  max: 1280 },
-      height:      { ideal: 480,  max: 720  },
+      width:       { ideal: 960,  max: 1280 },
+      height:      { ideal: 540,  max: 720  },
       frameRate:   { ideal: 24,   max: 30   },
       aspectRatio: { ideal: 16/9 }
     },
@@ -1145,14 +1145,14 @@ async function requestCamera() {
     // Fallback ke resolusi bebas (biarkan browser pilih terendah yang didukung device).
     try {
       camStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
-      console.log('[CAM] Stream 480p berhasil');
+      console.log('[CAM] Stream 540p berhasil');
     } catch (e1) {
-      console.warn('[CAM] 480p gagal, fallback resolusi minimal:', e1.message);
+      console.warn('[CAM] 540p gagal, fallback resolusi 480p:', e1.message);
       camStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: currentFacingMode || 'environment', width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24 } },
+        video: { facingMode: currentFacingMode || 'environment', width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
         audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
       });
-      console.log('[CAM] Stream fallback berhasil');
+      console.log('[CAM] Stream fallback 480p berhasil');
     }
     startWatchSession();
   } catch (e) {
@@ -1366,7 +1366,7 @@ function connectSocket_Viewer() {
         if (videoSender) {
           const params = videoSender.getParameters();
           if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-          params.encodings[0].maxBitrate    = 600_000; // 600 kbps — cukup untuk 480p
+          params.encodings[0].maxBitrate    = 900_000; // 900 kbps — cukup untuk 540p tajam
           params.encodings[0].maxFramerate  = 24;      // 24fps hemat vs 30fps
           params.encodings[0].scaleResolutionDownBy = 1.0;
           // networkPriority: low agar tidak dominasi koneksi saat video GDrive sedang buffering
