@@ -481,13 +481,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const DISPLAY_MS = 6000;  // durasi tiap gambar (ms)
   const FADE_MS    = 1800;  // durasi fade — harus sama dengan CSS transition
 
+  // Fisher-Yates shuffle — acak urutan array di tempat
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   async function initCoverSlideshow() {
     try {
       const res  = await fetch('/api/backgrounds');
       const data = await res.json();
       if (!data.images || data.images.length === 0) return;
 
-      const images = data.images;
+      const images = shuffleArray([...data.images]); // acak urutan tiap kali halaman dimuat
       const cover  = document.querySelector('.card-cover');
       if (!cover) return;
 
