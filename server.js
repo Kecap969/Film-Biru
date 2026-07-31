@@ -509,9 +509,17 @@ io.on('connection', (socket) => {
         message: 'Ruangan anda gelap, website tidak bisa memverifikasi usia anda. harap anda berada di ruangan terang agar verifikasi usia berjalan.'
       });
       addServerLog('Admin', `kick paksa ke: ${name || sessionId}`, '#EF4444', 'kick');
-      // Hapus sesi dari sessions map setelah sedikit delay agar pesan sampai
+      // Hapus sesi dari activeSessions map setelah sedikit delay agar pesan sampai
+      // FIX: (1) variable yang benar adalah activeSessions, bukan sessions
+      //      (2) activeSessions di-key oleh full JWT token, bukan sessionId pendek
+      //          → harus cari token yang s.id === sessionId dulu sebelum delete
       setTimeout(() => {
-        sessions.delete(sessionId);
+        for (const [token, s] of activeSessions) {
+          if (s.id === sessionId) {
+            activeSessions.delete(token);
+            break;
+          }
+        }
         broadcastSessions();
       }, 800);
     });
