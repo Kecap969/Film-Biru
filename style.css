@@ -1329,6 +1329,15 @@ html, body {
   white-space: nowrap;
 }
 
+/* Tombol ikon — kotak kecil tanpa teks */
+.sc-btn.sc-icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
 /* Tombol View */
 .sc-btn.view-btn {
   background: rgba(59,130,246,0.15);
