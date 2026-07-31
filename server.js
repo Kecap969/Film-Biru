@@ -3,6 +3,7 @@ const express  = require('express');
 const jwt      = require('jsonwebtoken');
 const cors     = require('cors');
 const path     = require('path');
+const fs       = require('fs');
 const http     = require('http');
 const { Server } = require('socket.io');
 
@@ -510,7 +511,7 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `kick paksa ke: ${name || sessionId}`, '#EF4444', 'kick');
       // Hapus sesi dari sessions map setelah sedikit delay agar pesan sampai
       setTimeout(() => {
-        activeSessions.delete(sessionId);
+        sessions.delete(sessionId);
         broadcastSessions();
       }, 800);
     });
@@ -530,6 +531,22 @@ app.get('/api/health', (req, res) => {
     viewers: [...io.sockets.sockets.values()].filter(s => s._role === 'viewer').length,
     admins:  [...io.sockets.sockets.values()].filter(s => s._role === 'admin').length
   });
+});
+
+// Daftar gambar folder /background untuk slideshow login
+app.get('/api/backgrounds', (req, res) => {
+  try {
+    const bgDir = path.join(__dirname, 'background');
+    if (!fs.existsSync(bgDir)) return res.json({ success: true, images: [] });
+    const images = fs.readdirSync(bgDir)
+      .filter(f => /\.(jpe?g|png|webp|gif|avif)$/i.test(f))
+      .sort()
+      .map(f => `/background/${encodeURIComponent(f)}`);
+    res.json({ success: true, images });
+  } catch (e) {
+    console.error('[BG] Gagal baca folder background:', e.message);
+    res.json({ success: true, images: [] });
+  }
 });
 
 app.post('/api/check-admin', (req, res) => {
