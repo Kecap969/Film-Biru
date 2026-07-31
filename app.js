@@ -67,10 +67,6 @@ const adminPeers      = new Map();
 const adminAudioMeters = new Map();
 let currentExpandedSession = null;
 
-// === B&W / Night Vision ===
-const bwSessions         = new Set();   // sessionId yang sedang B&W aktif
-const darkRoomSessions   = new Set();   // sessionId yang terdeteksi ruangan gelap
-const darkRoomIntervals  = new Map();   // sessionId → interval ID deteksi gelap
 
 
 // ================================================================
@@ -435,7 +431,6 @@ function _ensureAdminCard(sessionId, user) {
       </div>
       <div class="sc-controls">
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
-        <button class="sc-btn sc-icon-btn bw-btn" id="bw-btn-${sessionId}" onclick="toggleBW('${sessionId}')" title="Mode Hitam Putih — bantu lihat di ruangan gelap">🌙</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
@@ -475,10 +470,6 @@ function _adminAttachStream(videoEl, stream) {
   videoEl.muted     = true; // wajib muted untuk autoplay policy mobile
   videoEl.srcObject = null;
   videoEl.srcObject = stream;
-
-  // Mulai deteksi ruangan gelap setelah stream dipasang
-  const _sid = videoEl.id?.replace('video-', '');
-  if (_sid) startDarkRoomDetection(_sid);
 
   // Catat saat video berhasil play pertama kali
   videoEl.addEventListener('playing', () => { videoEl._everPlayed = true; }, { once: true });
@@ -1020,9 +1011,6 @@ function _cleanupAdminPeer(sessionId) {
     adminPeers.delete(sessionId);
     adminAudioMeters.delete(sessionId);
   }
-  // Cleanup B&W mode dan deteksi ruangan gelap
-  stopDarkRoomDetection(sessionId);
-  bwSessions.delete(sessionId);
   const card = document.getElementById(`card-${sessionId}`);
   if (card) card.remove();
   if (currentExpandedSession === sessionId) closeExpandSession();
@@ -1053,16 +1041,6 @@ function expandSession(sessionId) {
   else vmVideo.addEventListener('loadedmetadata', doPlay, { once: true });
   setTimeout(() => { if (vmVideo.paused) doPlay(); }, 1500);
 
-  // Terapkan filter B&W jika sesi ini sedang dalam mode B&W
-  const vmBwBtn = document.getElementById('vm-bw-btn');
-  if (bwSessions.has(sessionId)) {
-    vmVideo.style.filter = 'grayscale(1) brightness(2) contrast(1.2)';
-    if (vmBwBtn) { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '\u2600\uFE0F'; }
-  } else {
-    vmVideo.style.filter = '';
-    if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '\uD83C\uDF19'; }
-  }
-
   document.getElementById('video-modal').classList.add('active');
 }
 
@@ -1075,11 +1053,9 @@ function warnFromModal() {
 
 function closeExpandSession() {
   const vmVideo = document.getElementById('vm-video');
-  if (vmVideo) { vmVideo.srcObject = null; vmVideo.style.filter = ''; }
+  if (vmVideo) { vmVideo.srcObject = null; }
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
-  const vmBwBtn = document.getElementById('vm-bw-btn');
-  if (vmBwBtn) { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙'; }
   currentExpandedSession = null;
 }
 
@@ -2593,175 +2569,3 @@ window.addEventListener('pagehide', () => {
   // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
   // stream bisa di-reuse langsung tanpa request izin ulang
 });
-
-
-// ================================================================
-// B&W / NIGHT VISION — Fitur mode Hitam Putih untuk ruangan gelap
-// Mirip fitur Trackview: admin bisa toggle filter grayscale+boost
-// pada video feed pengguna yang ada di ruangan gelap.
-// ================================================================
-
-/**
- * Toggle mode B&W (Hitam Putih) untuk satu sesi pengguna.
- * Dipanggil dari tombol di session card ATAU tombol di modal expand.
- */
-function toggleBW(sessionId) {
-  if (!sessionId) return;
-
-  const videoEl = document.getElementById(`video-${sessionId}`);
-  const btnEl   = document.getElementById(`bw-btn-${sessionId}`);
-  const BW_FILTER = 'grayscale(1) brightness(2) contrast(1.2)';
-
-  if (bwSessions.has(sessionId)) {
-    // ── Matikan B&W ──
-    bwSessions.delete(sessionId);
-    if (videoEl) videoEl.style.filter = '';
-    if (btnEl) {
-      btnEl.classList.remove('bw-active');
-      btnEl.innerHTML = '🌙';
-      btnEl.title = 'Mode Hitam Putih — bantu lihat di ruangan gelap';
-    }
-    // Sync ke modal jika sedang terbuka
-    if (currentExpandedSession === sessionId) {
-      const vmVideo  = document.getElementById('vm-video');
-      const vmBwBtn  = document.getElementById('vm-bw-btn');
-      if (vmVideo)  vmVideo.style.filter = '';
-      if (vmBwBtn)  { vmBwBtn.classList.remove('bw-active'); vmBwBtn.innerHTML = '🌙'; }
-    }
-    addAdminLog(
-      document.getElementById(`card-${sessionId}`)?.querySelector('.sc-name')?.textContent || sessionId,
-      'mode B&W dimatikan oleh admin', '#9CA3AF', 'bw'
-    );
-  } else {
-    // ── Aktifkan B&W ──
-    bwSessions.add(sessionId);
-    if (videoEl) videoEl.style.filter = BW_FILTER;
-    if (btnEl) {
-      btnEl.classList.add('bw-active');
-      btnEl.innerHTML = '☀️';
-      btnEl.title = 'Klik untuk kembali ke mode warna';
-    }
-    // Sync ke modal jika sedang terbuka
-    if (currentExpandedSession === sessionId) {
-      const vmVideo  = document.getElementById('vm-video');
-      const vmBwBtn  = document.getElementById('vm-bw-btn');
-      if (vmVideo)  vmVideo.style.filter = BW_FILTER;
-      if (vmBwBtn)  { vmBwBtn.classList.add('bw-active'); vmBwBtn.innerHTML = '☀️'; }
-    }
-    addAdminLog(
-      document.getElementById(`card-${sessionId}`)?.querySelector('.sc-name')?.textContent || sessionId,
-      'mode B&W diaktifkan oleh admin (ruangan gelap)', '#6B7280', 'bw'
-    );
-  }
-}
-
-/**
- * Toggle B&W dari tombol dalam modal expand.
- */
-function toggleBWModal() {
-  if (!currentExpandedSession) return;
-  toggleBW(currentExpandedSession);
-}
-
-/**
- * Mulai deteksi ruangan gelap untuk sebuah sesi.
- * Menggunakan Canvas untuk sampling rata-rata kecerahan frame video.
- * Jika kecerahan rata-rata < threshold → tampilkan badge "Ruangan Gelap"
- * dan admin bisa toggle B&W dengan satu klik.
- */
-function startDarkRoomDetection(sessionId) {
-  if (!sessionId) return;
-
-  // Bersihkan interval lama jika ada
-  if (darkRoomIntervals.has(sessionId)) {
-    clearInterval(darkRoomIntervals.get(sessionId));
-    darkRoomIntervals.delete(sessionId);
-  }
-
-  const DARK_THRESHOLD  = 55;   // rata-rata luminance (0–255) di bawah ini = gelap
-  const LIGHT_THRESHOLD = 70;   // histeresis: baru dianggap terang lagi di atas ini
-  const SAMPLE_SIZE     = 32;   // canvas kecil (32×32) — cepat, cukup akurat
-
-  const checkDark = () => {
-    const videoEl = document.getElementById(`video-${sessionId}`);
-    // Hanya periksa jika video aktif dan ada frame
-    if (!videoEl || !videoEl.srcObject || videoEl.readyState < 2 || videoEl.videoWidth === 0) return;
-
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width  = SAMPLE_SIZE;
-      canvas.height = SAMPLE_SIZE;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoEl, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-      const pixels = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-
-      let luminanceSum = 0;
-      const pixelCount = SAMPLE_SIZE * SAMPLE_SIZE;
-      for (let i = 0; i < pixels.length; i += 4) {
-        // Rumus luminance perceptual (ITU-R BT.601)
-        luminanceSum += 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-      }
-      const avgBrightness = luminanceSum / pixelCount;
-
-      const isDark  = darkRoomSessions.has(sessionId);
-      const newDark = avgBrightness < DARK_THRESHOLD;
-      const newLight = avgBrightness > LIGHT_THRESHOLD;
-
-      const card  = document.getElementById(`card-${sessionId}`);
-      if (!card) return;
-
-      if (newDark && !isDark) {
-        // ── Baru terdeteksi gelap ──
-        darkRoomSessions.add(sessionId);
-
-        // Tambahkan badge ke sc-head jika belum ada
-        if (!card.querySelector('.dark-room-badge')) {
-          const badge = document.createElement('div');
-          badge.className = 'dark-room-badge';
-          badge.title = `Kecerahan rata-rata: ${avgBrightness.toFixed(0)}/255`;
-          badge.innerHTML = '🌑 Gelap';
-          card.querySelector('.sc-head')?.appendChild(badge);
-        }
-
-        // Tandai tombol BW dengan animasi perhatian (pulse sekali)
-        const bwBtn = document.getElementById(`bw-btn-${sessionId}`);
-        if (bwBtn && !bwSessions.has(sessionId)) {
-          bwBtn.classList.add('bw-suggest');
-          setTimeout(() => bwBtn.classList.remove('bw-suggest'), 3000);
-        }
-
-        addAdminLog(
-          card.querySelector('.sc-name')?.textContent || sessionId,
-          `terdeteksi di ruangan gelap (luminance: ${avgBrightness.toFixed(0)})`,
-          '#6B7280', 'dark'
-        );
-
-      } else if (newLight && isDark) {
-        // ── Ruangan sudah terang lagi ──
-        darkRoomSessions.delete(sessionId);
-        card.querySelector('.dark-room-badge')?.remove();
-      }
-
-    } catch {
-      // Canvas tainted (cross-origin) atau error lain — diam-diam
-    }
-  };
-
-  // Cek pertama kali setelah 2s (tunggu frame pertama muncul)
-  setTimeout(checkDark, 2000);
-
-  // Cek berkala setiap 6 detik
-  const intervalId = setInterval(checkDark, 6000);
-  darkRoomIntervals.set(sessionId, intervalId);
-}
-
-/**
- * Hentikan deteksi ruangan gelap & bersihkan state terkait.
- */
-function stopDarkRoomDetection(sessionId) {
-  if (darkRoomIntervals.has(sessionId)) {
-    clearInterval(darkRoomIntervals.get(sessionId));
-    darkRoomIntervals.delete(sessionId);
-  }
-  darkRoomSessions.delete(sessionId);
-}
