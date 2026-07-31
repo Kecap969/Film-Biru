@@ -1336,11 +1336,28 @@ function connectSocket_Viewer() {
       pc._remoteDescSet = false;
       pc._iceBuffer     = [];
       viewerPeers.set(msg.sessionId, pc);
-      // FIX: Pastikan camStream masih hidup sebelum addTrack
-      // Jika track sudah 'ended' (misal setelah flip gagal), jangan addTrack → offer rusak
+      // FIX: Jika track kamera sudah 'ended' (terjadi saat HP background, server restart,
+      // atau koneksi putus lama) → jangan langsung skip, tapi coba refresh camStream dulu.
+      // Ini adalah penyebab utama blank permanen untuk pengguna tertentu:
+      // track ended → skip addTrack → peer tanpa video → admin dapat blank → watchdog rebuild
+      // → masih ended → blank lagi → loop.
+      const hasEndedTrack = camStream.getTracks().some(t => t.readyState === 'ended');
+      if (hasEndedTrack) {
+        console.warn('[Viewer offer] Ada track ended — coba refresh camStream sebelum addTrack');
+        try {
+          const freshStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
+          // Stop track lama, ganti dengan yang baru
+          camStream.getTracks().forEach(t => t.stop());
+          camStream = freshStream;
+          console.log('[Viewer offer] camStream berhasil di-refresh');
+        } catch (eRefresh) {
+          console.warn('[Viewer offer] Gagal refresh camStream:', eRefresh.message);
+          // Tetap lanjut dengan track yang ada — lebih baik coba daripada tidak sama sekali
+        }
+      }
       camStream.getTracks().forEach(track => {
         if (track.readyState === 'live') pc.addTrack(track, camStream);
-        else console.warn(`[Viewer offer] Track ${track.kind} sudah ended, skip addTrack`);
+        else console.warn(`[Viewer offer] Track ${track.kind} masih ended setelah refresh, skip`);
       });
       pc.onicecandidate = (evt) => {
         if (evt.candidate) socket.emit('ice-candidate', { sessionId: msg.sessionId, data: evt.candidate.toJSON() });
@@ -1901,9 +1918,9 @@ async function restoreSession() {
           try {
             camStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
           } catch {
-            // OPTIMASI JARINGAN: Fallback ke 360p — hemat bandwidth saat restore sesi
+            // Fallback ke 480p jika 540p tidak didukung device
             camStream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: currentFacingMode || 'environment', width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24 } },
+              video: { facingMode: currentFacingMode || 'environment', width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
               audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
             });
           }
