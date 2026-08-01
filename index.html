@@ -297,7 +297,6 @@
       </div>
       <div class="vm-actions">
         <button class="vm-btn" onclick="flipCameraRequest(currentExpandedSession)">🔄 Flip</button>
-        <button class="vm-btn hd-btn" id="vm-hd-btn" onclick="toggleHDRequest(currentExpandedSession)">📹 HD</button>
         <button class="vm-btn warn" onclick="warnFromModal()">⚠️ Peringatan</button>
         <button class="vm-btn close-btn" onclick="closeExpandSession()">✕ Tutup</button>
       </div>
@@ -388,8 +387,8 @@
 </div>
 
 <style>
-.vm-btn.hd-btn { background: rgba(91,140,255,0.15); border-color: rgba(91,140,255,0.4); color: #5B8CFF; }
-.vm-btn.hd-btn.hd-active { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.5); color: #4ADE80; }
+.sc-btn.hd-card-btn { background: rgba(91,140,255,0.15); border-color: rgba(91,140,255,0.4); color: #5B8CFF; font-size:.7rem; font-weight:700; letter-spacing:.05em; }
+.sc-btn.hd-card-btn.hd-active { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.5); color: #4ADE80; }
 
 @keyframes pboBubblePop {
   from { opacity:0; transform:scale(0.88) translateY(-6px); }
