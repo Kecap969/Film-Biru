@@ -73,7 +73,7 @@ html, body {
 
 .login-simple-wrap {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -104,36 +104,35 @@ html, body {
   letter-spacing: 0.03em;
   color: #fff;
   box-shadow:
-    0 0 0 5px rgba(9,14,28,0.80),
-    0 0 0 6.5px rgba(239,68,68,0.25),
-    0 12px 28px rgba(239,68,68,0.28);
+    0 0 0 5px #05080E,
+    0 0 0 6.5px rgba(239,68,68,0.2),
+    0 12px 28px rgba(239,68,68,0.22);
   margin-bottom: -25px;
   position: relative;
   z-index: 2;
   user-select: none;
 }
 
-/* ── Card — glassmorphism di atas background full-layar ─────── */
+/* ── Card ───────────────────────────────────────────────────── */
 .login-simple-card {
   width: 100%;
-  background: rgba(9,14,28,0.72);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255,255,255,0.11);
+  background: #090E1C;
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 18px;
-  padding: 28px 28px 26px;
+  padding: 0 28px 26px;       /* top 0 — cover image handle bagian atas */
   box-shadow:
-    0 40px 80px rgba(0,0,0,0.55),
-    inset 0 1px 0 rgba(255,255,255,0.07);
+    0 40px 80px rgba(0,0,0,0.65),
+    inset 0 1px 0 rgba(255,255,255,0.04);
   position: relative;
   z-index: 1;
 }
 
-/* ── Background slideshow — full layar ──────────────────────── */
+/* ── Sampul gambar di atas card ─────────────────────────────── */
 .card-cover {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  position: relative;
+  height: 175px;
+  margin: 0 -28px 22px;       /* bleed ke tepi card, batalkan padding */
+  border-radius: 18px 18px 0 0;
   overflow: hidden;
   background: #0A1020;        /* fallback jika belum ada gambar */
 }
@@ -150,16 +149,16 @@ html, body {
 }
 .bg-slide.active { opacity: 1; }
 
-/* Overlay gelap di atas background foto */
+/* Gradient fade ke bawah — blend dengan warna card */
 .card-cover-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
   background: linear-gradient(
-    160deg,
-    rgba(5,8,14,0.60) 0%,
-    rgba(5,8,14,0.50) 50%,
-    rgba(5,8,14,0.70) 100%
+    to bottom,
+    rgba(5,8,14,0.08)  0%,
+    rgba(9,14,28,0.80) 75%,
+    rgba(9,14,28,1.00) 100%
   );
   pointer-events: none;
 }
@@ -1824,7 +1823,10 @@ html, body {
 
   /* Login simpel — mobile */
   .login-simple-card {
-    padding: 24px 20px 22px;
+    padding: 0 20px 22px;
+  }
+  .card-cover {
+    margin: 0 -20px 18px;
   }
   .ls-divider {
     margin: 0 -20px 20px;
