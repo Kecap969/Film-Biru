@@ -503,7 +503,7 @@ io.on('connection', (socket) => {
       if (!sessionId) return;
       const targetRoom = io.sockets.adapter.rooms.get(`viewer:${sessionId}`);
       if (!targetRoom || targetRoom.size === 0) {
-        socket.emit('flip-camera-rejected', { sessionId }); return;
+        socket.emit('flip-camera-rejected', { sessionId, reason: 'Viewer tidak terhubung' }); return;
       }
       io.to(`viewer:${sessionId}`).emit('flip-camera');
     });
