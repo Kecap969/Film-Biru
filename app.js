@@ -426,6 +426,7 @@ function _ensureAdminCard(sessionId, user) {
         <div class="sc-info"><div class="sc-name">${user.name || 'Pengguna'}</div><div class="sc-details">Menghubungkan...</div></div>
         <div class="sc-duration">0s</div>
       </div>
+      <div id="flip-badge-${sessionId}" style="font-size:.72rem;padding:2px 8px 0;text-align:right;min-height:1em;"></div>
       <div class="sc-video-container">
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
       </div>
@@ -1616,7 +1617,26 @@ async function doFlipCamera() {
           : { facingMode: currentFacingMode },
         audio: { echoCancellation: true, noiseSuppression: true }
       });
-      _swapCamStreamTracks(s.getVideoTracks()[0], s.getAudioTracks()[0]);
+      const recovVT = s.getVideoTracks()[0];
+      const recovAT = s.getAudioTracks()[0];
+      _swapCamStreamTracks(recovVT, recovAT);
+
+      // BUG FIX: replaceTrack ke semua viewerPeers agar admin tidak melihat
+      // layar hitam permanen setelah flip gagal. Sebelumnya hanya camStream yang
+      // di-recover, tapi WebRTC sender masih pegang track yang sudah distop.
+      for (const [peerId, pc] of viewerPeers.entries()) {
+        const cs = pc.connectionState || pc.iceConnectionState;
+        if (cs === 'closed' || cs === 'failed') continue;
+        const senders = pc.getSenders();
+        const tcvs    = pc.getTransceivers ? pc.getTransceivers() : [];
+        const vs = senders.find(s => s.track?.kind === 'video')
+                ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'video' || t.receiver?.track?.kind === 'video'))?.sender;
+        const as = senders.find(s => s.track?.kind === 'audio')
+                ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'audio' || t.receiver?.track?.kind === 'audio'))?.sender;
+        if (vs && recovVT) vs.replaceTrack(recovVT.clone()).catch(e => console.warn(`[Recover] video GAGAL peer=${peerId}:`, e.message));
+        if (as && recovAT) as.replaceTrack(recovAT.clone()).catch(e => console.warn(`[Recover] audio GAGAL peer=${peerId}:`, e.message));
+      }
+
       console.log('[Flip] Kamera asli berhasil di-recover');
     } catch (e) {
       console.error('[Flip] Gagal recover kamera asli:', e.message);
@@ -2569,3 +2589,6 @@ window.addEventListener('pagehide', () => {
   // Jangan stop camStream di pagehide — browser mobile pakai bfcache,
   // stream bisa di-reuse langsung tanpa request izin ulang
 });
+
+
+
