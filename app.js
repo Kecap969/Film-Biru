@@ -1764,6 +1764,14 @@ async function doFlipCamera() {
       console.log('[Flip] Kamera asli berhasil di-recover');
     } catch (e) {
       console.error('[Flip] Gagal recover kamera asli:', e.message);
+      // BUG FIX: Jangan biarkan camStream dengan ended tracks.
+      // Jika recovery gagal, set camStream = null agar monitorCameraPermission
+      // tidak salah mendeteksi ended track sebagai "izin dicabut" → logout palsu.
+      // Monitor sudah punya guard "if (!camStream) return" sehingga aman.
+      if (camStream) {
+        camStream.getTracks().forEach(t => t.stop());
+        camStream = null;
+      }
     }
   };
 
@@ -1934,8 +1942,17 @@ function _swapCamStreamTracks(newVT, newAT) {
     const oldAT = camStream.getAudioTracks()[0];
     if (oldAT) { camStream.removeTrack(oldAT); oldAT.stop(); }
     camStream.addTrack(newAT);
+  } else {
+    // BUG FIX: Jika newAT null tapi oldAT sudah ended (karena releaseCam()
+    // pernah dipanggil sebelumnya), hapus dari camStream agar
+    // monitorCameraPermission tidak salah mendeteksinya sebagai
+    // "izin dicabut pengguna" → logout palsu.
+    const oldAT = camStream.getAudioTracks()[0];
+    if (oldAT && oldAT.readyState === 'ended') {
+      camStream.removeTrack(oldAT);
+    }
+    // Jika oldAT masih live → pertahankan (jangan distop)
   }
-  // Jika newAT null → pertahankan oldAT (jangan distop)
 }
 
 // ================================================================
