@@ -434,6 +434,7 @@ function _ensureAdminCard(sessionId, user) {
       <div class="sc-controls">
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
+        <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
       <div class="audio-meter">
@@ -974,23 +975,21 @@ function flipCameraRequest(sessionId) {
   socket.emit('flip-camera', { sessionId });
 }
 
-// Toggle HD — kirim request ke viewer, update tombol
+// Toggle HD — kirim request ke viewer, update tombol di card
 function toggleHDRequest(sessionId) {
   if (!sessionId || !socket) return;
-  const btn = document.getElementById('vm-hd-btn');
+  const btn = document.getElementById(`hd-btn-${sessionId}`);
   const isHD = hdSessions.has(sessionId);
 
   if (isHD) {
-    // Matikan HD
     socket.emit('stop-hd', { sessionId });
     hdSessions.delete(sessionId);
-    if (btn) { btn.textContent = '📹 HD'; btn.classList.remove('hd-active'); }
+    if (btn) { btn.textContent = 'HD'; btn.classList.remove('hd-active'); }
     addAdminLog('Admin', `HD dimatikan untuk sesi ${sessionId}`, '#F2B94B', 'info');
   } else {
-    // Nyalakan HD
     socket.emit('request-hd', { sessionId });
     hdSessions.add(sessionId);
-    if (btn) { btn.textContent = '📹 HD ✓'; btn.classList.add('hd-active'); }
+    if (btn) { btn.textContent = 'HD✓'; btn.classList.add('hd-active'); }
     addAdminLog('Admin', `HD diaktifkan untuk sesi ${sessionId}`, '#4ADE80', 'info');
   }
 }
@@ -1079,9 +1078,6 @@ function closeExpandSession() {
   if (vmVideo) { vmVideo.srcObject = null; }
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
-  // Reset tombol HD ke state awal
-  const hdBtn = document.getElementById('vm-hd-btn');
-  if (hdBtn) { hdBtn.textContent = '📹 HD'; hdBtn.classList.remove('hd-active'); }
   currentExpandedSession = null;
 }
 
