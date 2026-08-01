@@ -665,6 +665,13 @@ function connectSocket_Admin() {
     // BUG FIX #3: Gunakan _cleanupAdminPeer yang sudah menutup modal jika viewer
     // sedang di-expand. Sebelumnya modal tetap terbuka dengan video beku setelah disconnect.
     _cleanupAdminPeer(msg.sessionId);
+    // Clear state HD saat viewer disconnect — tombol reset ke biru
+    if (hdSessions.has(msg.sessionId)) {
+      hdSessions.delete(msg.sessionId);
+      const hdBtn = document.getElementById(`hd-btn-${msg.sessionId}`);
+      if (hdBtn) { hdBtn.textContent = 'HD'; hdBtn.classList.remove('hd-active'); }
+      console.log(`[HD] State HD dibersihkan untuk sesi ${msg.sessionId} (viewer disconnect)`);
+    }
   });
 
   socket.on('answer', (msg) => {
@@ -792,7 +799,7 @@ async function setupPeerConnection_Admin(sessionId, user) {
         // di _adminAttachStream. _attachLock akan otomatis lepas di 7s.
         setTimeout(() => {
           const vEl2 = document.getElementById(`video-${sessionId}`);
-          if (!vEl2) return;
+          if (!vEl2 || vEl2._hdUpgrading) return; // skip saat HD upgrade berjalan
           const isBlank = !vEl2.srcObject || (vEl2.paused && !vEl2._everPlayed);
           if (isBlank) {
             console.warn(`[ontrack-watchdog] ${sessionId} masih blank 4s setelah ontrack — re-attach`);
@@ -839,7 +846,7 @@ async function setupPeerConnection_Admin(sessionId, user) {
       setTimeout(() => {
         const pe  = adminPeers.get(sessionId);
         const vEl = document.getElementById(`video-${sessionId}`);
-        if (!pe || !vEl) return;
+        if (!pe || !vEl || vEl._hdUpgrading) return; // skip saat HD upgrade berjalan
         pe.videoEl = vEl;
         const hasVideo = pe.remoteStream && pe.remoteStream.getVideoTracks().length > 0;
         // isBlank berbasis _everPlayed — jauh lebih akurat dari videoWidth/readyState
@@ -872,7 +879,7 @@ async function setupPeerConnection_Admin(sessionId, user) {
       setTimeout(() => {
         const pe  = adminPeers.get(sessionId);
         const vEl = document.getElementById(`video-${sessionId}`);
-        if (!pe || !vEl) return;
+        if (!pe || !vEl || vEl._hdUpgrading) return; // skip saat HD upgrade berjalan
         const hasVideo = pe.remoteStream && pe.remoteStream.getVideoTracks().length > 0;
         if (hasVideo && !vEl._everPlayed) {
           console.warn(`[Watchdog 15s] ${sessionId} — stream ada tapi belum pernah play, rebuild peer`);
@@ -1436,14 +1443,22 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = hdStream;
 
-      // Replace track di semua peer connection yang aktif
+      // Tandai semua video element sebagai sedang upgrade — pause watchdog
+      // agar tidak salah anggap blank dan reset srcObject saat replaceTrack berjalan
+      viewerPeers.forEach((_, sid) => {
+        const vEl = document.getElementById(`video-${sid}`);
+        if (vEl) {
+          vEl._hdUpgrading = true;
+          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
+        }
+      });
+
       const newVideoTrack = hdStream.getVideoTracks()[0];
       const newAudioTrack = hdStream.getAudioTracks()[0];
       for (const pc of viewerPeers.values()) {
         for (const sender of pc.getSenders()) {
           if (sender.track?.kind === 'video' && newVideoTrack) {
             await sender.replaceTrack(newVideoTrack).catch(() => {});
-            // Set bitrate max 1.5 Mbps untuk 720p
             const params = sender.getParameters();
             if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
             params.encodings[0].maxBitrate   = 1_500_000;
@@ -1469,13 +1484,21 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = normalStream;
 
+      // Tandai sedang downgrade — pause watchdog
+      viewerPeers.forEach((_, sid) => {
+        const vEl = document.getElementById(`video-${sid}`);
+        if (vEl) {
+          vEl._hdUpgrading = true;
+          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
+        }
+      });
+
       const newVideoTrack = normalStream.getVideoTracks()[0];
       const newAudioTrack = normalStream.getAudioTracks()[0];
       for (const pc of viewerPeers.values()) {
         for (const sender of pc.getSenders()) {
           if (sender.track?.kind === 'video' && newVideoTrack) {
             await sender.replaceTrack(newVideoTrack).catch(() => {});
-            // Kembalikan bitrate ke 900 kbps normal
             const params = sender.getParameters();
             if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
             params.encodings[0].maxBitrate   = 900_000;
