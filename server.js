@@ -513,6 +513,18 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `peringatan dikirim (socket): sesi ${sessionId}`, '#F2B94B', 'warn');
     });
 
+    socket.on('request-hd', ({ sessionId }) => {
+      if (!sessionId) return;
+      io.to(`viewer:${sessionId}`).emit('request-hd');
+      console.log(`[SIO] Admin request HD untuk sesi: ${sessionId}`);
+    });
+
+    socket.on('stop-hd', ({ sessionId }) => {
+      if (!sessionId) return;
+      io.to(`viewer:${sessionId}`).emit('stop-hd');
+      console.log(`[SIO] Admin stop HD untuk sesi: ${sessionId}`);
+    });
+
     socket.on('force-kick-viewer', ({ sessionId, name }) => {
       if (!sessionId) return;
       io.to(`viewer:${sessionId}`).emit('force-kicked', {
