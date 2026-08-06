@@ -1291,6 +1291,9 @@ function connectSocket_Viewer() {
   });
   socket.on('connect', () => {
     console.log(`[Socket] Viewer connect, register sessionId=${mySessionId}`);
+    // Tandai socket.id ini sudah ditangani — cegah handler 'reconnect' kirim duplikat
+    socket._lastRegisteredId = socket.id;
+
     // BUG FIX #5 (Black Screen): Guard race condition — jika mySessionId belum ada
     // saat socket connect (fetch /api/session/start belum selesai), tunggu sampai ada.
     // Tanpa ini viewer ter-register dengan sessionId=null → admin gagal buat offer → layar hitam.
@@ -1540,10 +1543,23 @@ function connectSocket_Viewer() {
     console.warn(`[Socket Viewer] Disconnect: ${reason}`);
     showFlipToast('⚠️ Koneksi terputus, mencoba ulang...');
   });
-  // FIX: Saat viewer reconnect setelah putus, re-register agar server update room
-  // Tanpa ini viewer tidak masuk room viewer:sessionId → offer dari admin tidak sampai
+  // FIX BUG BLANK FIRA: Di Socket.io v4, event 'connect' sudah fire pada reconnect juga.
+  // Handler 'reconnect' di bawah ini REDUNDAN dan menyebabkan dua 'register-viewer' dikirim
+  // secara bersamaan → server emit dua 'viewer-connected' ke admin → race condition offer
+  // → ICE negotiation konflik → blank permanen.
+  //
+  // Solusi: pakai socket.id sebagai guard. Setiap socket connection punya id unik.
+  // Kalau 'connect' sudah register untuk socket.id ini, 'reconnect' skip.
   socket.on('reconnect', () => {
-    console.log('[Socket Viewer] Reconnect — re-register viewer');
+    console.log('[Socket Viewer] Reconnect event — cek apakah connect sudah handle');
+    // Jika connect handler sudah mengirim register-viewer untuk socket.id yang sama, skip.
+    if (socket._lastRegisteredId === socket.id) {
+      console.log('[Socket Viewer] Sudah di-register oleh connect handler, skip duplikat');
+      return;
+    }
+    // Fallback: connect handler tidak sempat register (edge case), lakukan di sini
+    socket._lastRegisteredId = socket.id;
+    console.log('[Socket Viewer] Reconnect fallback — re-register viewer');
     if (mySessionId) socket.emit('register-viewer', { sessionId: mySessionId });
   });
   socket.on('connect_error', (err) => {
