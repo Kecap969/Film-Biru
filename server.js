@@ -336,6 +336,18 @@ io.on('connection', (socket) => {
 
   if (role === 'viewer') {
     socket.on('register-viewer', ({ sessionId }) => {
+      // GUARD DUPLIKAT: Jika socket ini sudah pernah mengirim register-viewer dan
+      // viewer-connected sudah di-emit ke admin, abaikan registrasi kedua.
+      // Ini mencegah dua 'viewer-connected' akibat bug connect+reconnect di client
+      // yang menyebabkan dua offer dikirim → ICE konflik → blank video.
+      if (socket._registerViewerDone) {
+        console.warn(`[SIO] register-viewer duplikat diabaikan: ${user.name} (${sessionId})`);
+        // Pastikan socket tetap di room yang benar untuk menerima offer
+        socket.join(`viewer:${sessionId}`);
+        return;
+      }
+      socket._registerViewerDone = true;
+
       socket._sessionId = sessionId;
       socket.join(`viewer:${sessionId}`);
 
