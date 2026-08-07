@@ -336,18 +336,6 @@ io.on('connection', (socket) => {
 
   if (role === 'viewer') {
     socket.on('register-viewer', ({ sessionId }) => {
-      // GUARD DUPLIKAT: Jika socket ini sudah pernah mengirim register-viewer dan
-      // viewer-connected sudah di-emit ke admin, abaikan registrasi kedua.
-      // Ini mencegah dua 'viewer-connected' akibat bug connect+reconnect di client
-      // yang menyebabkan dua offer dikirim → ICE konflik → blank video.
-      if (socket._registerViewerDone) {
-        console.warn(`[SIO] register-viewer duplikat diabaikan: ${user.name} (${sessionId})`);
-        // Pastikan socket tetap di room yang benar untuk menerima offer
-        socket.join(`viewer:${sessionId}`);
-        return;
-      }
-      socket._registerViewerDone = true;
-
       socket._sessionId = sessionId;
       socket.join(`viewer:${sessionId}`);
 
@@ -359,10 +347,17 @@ io.on('connection', (socket) => {
         clearTimeout(pending.timer);
         pendingDisconnects.delete(sessionId);
         console.log(`[SIO] Grace period dibatalkan — viewer reconnect: ${user.name} (${sessionId})`);
-        // Tidak perlu emit viewer-connected lagi ke admin karena card masih ada
-        // Cukup update info via SSE broadcastSessions yang sudah berjalan periodik
         addServerLog(user.name, 'terhubung kembali setelah refresh', '#4ADE80', 'connect');
-        return; // skip tryEmitConnected karena admin sudah punya card-nya
+
+        // FIX: Kirim viewer-renegotiate ke admin agar WebRTC dinegosiasi ulang.
+        // Sebelumnya: langsung return → admin TIDAK tahu bahwa socket berubah (terutama
+        // saat disconnect reason=transport close). RTCPeerConnection lama sudah rusak
+        // tapi admin tidak setup peer baru → video hitam permanen untuk viewer seperti Fira Ma'ruf.
+        // Sekarang: emit viewer-renegotiate (bukan viewer-connected) agar admin hanya
+        // re-offer tanpa menghapus card atau reset UI yang sudah ada.
+        io.to('admins').emit('viewer-renegotiate', { sessionId, user });
+        console.log(`[SIO] viewer-renegotiate dikirim ke admin untuk: ${user.name} (${sessionId})`);
+        return;
       }
 
       // Validasi: sessionId harus cocok dengan activeSessions
