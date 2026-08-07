@@ -47,21 +47,18 @@ if (!process.env.GDRIVE_FOLDER_ID) throw new Error('[FATAL] GDRIVE_FOLDER_ID waj
 const GDRIVE_API_KEY   = process.env.GDRIVE_API_KEY;
 const GDRIVE_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
 
-// ── Folder ke-2 (opsional) — dipakai saat folder utama penuh atau untuk akun GDrive berbeda
-// Set GDRIVE_FOLDER_ID_2 di environment variable untuk mengaktifkan.
-// GDRIVE_API_KEY_2 opsional: jika tidak diset, otomatis pakai GDRIVE_API_KEY yang sama.
+// ── Folder ke-2 (opsional)
 const GDRIVE_FOLDER_ID_2 = process.env.GDRIVE_FOLDER_ID_2 || null;
 const GDRIVE_API_KEY_2   = process.env.GDRIVE_API_KEY_2   || GDRIVE_API_KEY;
 
 // ===========================
 // CLOUDFLARE TURN CONFIG
 // ===========================
-const CF_TURN_KEY_ID  = process.env.CF_TURN_KEY_ID  || 'ea52534c8e9f896f83c4cb968f7412fc';
-const CF_TURN_API_KEY = process.env.CF_TURN_API_KEY || '0b6a1677fc63591008aa09b9e0ead5431a9249506ae75b9e16d149d6976e34b0';
-// Cache kredensial TURN agar tidak hit Cloudflare API setiap request
+const CF_TURN_KEY_ID  = process.env.CF_TURN_KEY_ID;
+const CF_TURN_API_KEY = process.env.CF_TURN_API_KEY;
 let cfTurnCache     = null;
 let cfTurnCacheTime = 0;
-const CF_TURN_TTL   = 12 * 60 * 60 * 1000; // 12 jam (lebih pendek dari TTL 24j agar aman)
+const CF_TURN_TTL   = 12 * 60 * 60 * 1000; // 12 jam
 
 // Cache film dari GDrive agar tidak hit API setiap request
 let gdriveFilmsCache = [];
@@ -920,16 +917,20 @@ setInterval(() => {
 }, 15000);
 
 // ================================================================
-// PROXY VIDEO — stream video GDrive lewat server (bypass CORS)
-// GET /api/proxy-video?id=FILE_ID
-// Mendukung Range requests sehingga seek/skip video berfungsi
+// VIDEO REDIRECT — arahkan langsung ke GDrive (hemat bandwidth Railway)
+// GET /api/proxy-video?id=FILE_ID&token=TOKEN
+//
+// SEBELUM: User → Railway (stream semua byte) → GDrive  [BOROS]
+// SEKARANG: User → Railway (cek token → redirect) → GDrive langsung [HEMAT]
+//
+// Video byte tidak lewat Railway sama sekali.
+// URL GDrive di-cache server & expire otomatis ~20 menit.
 // ================================================================
 
-// Cache URL direct download per fileId (valid ~1 jam)
+// Cache URL direct GDrive per fileId
 const proxyUrlCache = new Map(); // fileId → { url, expires }
 
 async function resolveGDriveDirectUrl(fileId) {
-  // Cek cache dulu
   const cached = proxyUrlCache.get(fileId);
   if (cached && Date.now() < cached.expires) return cached.url;
 
@@ -938,169 +939,88 @@ async function resolveGDriveDirectUrl(fileId) {
     'Accept': '*/*',
   };
 
-  // Step 1: Coba URL export download langsung
-  let url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+  // Coba beberapa URL GDrive sampai dapat URL video langsung
+  const candidates = [
+    `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
+    `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`,
+  ];
 
-  // Ikuti redirect manual (maksimal 5 kali) untuk dapat URL final
-  for (let i = 0; i < 5; i++) {
-    const r = await fetch(url, { headers: baseHeaders, redirect: 'manual' });
+  for (const startUrl of candidates) {
+    let url = startUrl;
+    for (let i = 0; i < 5; i++) {
+      const r = await fetch(url, { headers: baseHeaders, redirect: 'manual' });
 
-    if (r.status === 200) {
-      const ct = r.headers.get('content-type') || '';
-      if (ct.startsWith('video/') || ct.startsWith('application/octet') || ct === 'binary/octet-stream') {
-        // Ini sudah URL file video langsung
-        proxyUrlCache.set(fileId, { url, expires: Date.now() + 45 * 60 * 1000 });
-        return url;
+      if (r.status === 200) {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.startsWith('video/') || ct.startsWith('application/octet') || ct === 'binary/octet-stream') {
+          proxyUrlCache.set(fileId, { url, expires: Date.now() + 20 * 60 * 1000 }); // cache 20 menit
+          return url;
+        }
+        // Halaman konfirmasi GDrive — cari token confirm
+        const html = await r.text();
+        const match = html.match(/confirm=([0-9A-Za-z_\-]+)/);
+        if (match) { url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${match[1]}`; continue; }
+        break;
       }
-      // Mungkin HTML konfirmasi — cari confirm token dari body
-      const html = await r.text();
-      const match = html.match(/confirm=([0-9A-Za-z_\-]+)/);
-      if (match) {
-        url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${match[1]}`;
+
+      if ([301, 302, 307, 308].includes(r.status)) {
+        const loc = r.headers.get('location');
+        if (!loc) break;
+        url = loc;
         continue;
       }
-      // Coba URL alternatif via drive.usercontent.google.com
-      url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-      continue;
+      break;
     }
-
-    if (r.status === 302 || r.status === 301 || r.status === 307 || r.status === 308) {
-      const location = r.headers.get('location');
-      if (!location) break;
-      url = location;
-      continue;
-    }
-
-    break;
   }
 
-  // Fallback: coba drive.usercontent.google.com
-  url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-  proxyUrlCache.set(fileId, { url, expires: Date.now() + 15 * 60 * 1000 });
-  return url;
+  // Fallback: pakai URL usercontent langsung (paling stabil)
+  const fallback = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+  proxyUrlCache.set(fileId, { url: fallback, expires: Date.now() + 10 * 60 * 1000 }); // cache 10 menit
+  return fallback;
 }
 
 app.get('/api/proxy-video', async (req, res) => {
-  // SECURITY FIX: Wajib token valid sebelum proxy video
-  const token = (req.headers['authorization'] || '').split(' ')[1]
-             || req.query.token; // fallback query param untuk <video src="...?token=">
+  // Wajib token valid
+  const token = (req.headers['authorization'] || '').split(' ')[1] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Token tidak valid' }); }
 
   const fileId = req.query.id;
   if (!fileId) return res.status(400).json({ error: 'Parameter id wajib diisi' });
 
-  // BUG FIX #6 (Black Screen): Tambahkan retry loop di level proxy.
-  // GDrive sering kembalikan HTML konfirmasi (bukan video) untuk file besar.
-  // Sebelumnya langsung 502 → client dapat error → layar hitam.
-  // Sekarang: invalidate cache + resolve ulang URL maksimal 2 kali sebelum menyerah.
-  const MAX_PROXY_RETRY = 2;
+  try {
+    const directUrl = await resolveGDriveDirectUrl(fileId);
 
-  for (let attempt = 0; attempt <= MAX_PROXY_RETRY; attempt++) {
-    try {
-      if (attempt > 0) {
-        // Invalidate cache dulu agar resolveGDriveDirectUrl ambil URL segar
-        proxyUrlCache.delete(fileId);
-        console.warn(`[PROXY] Retry ${attempt}/${MAX_PROXY_RETRY} untuk fileId=${fileId}`);
-      }
+    // Redirect ke GDrive langsung — video byte tidak lewat Railway
+    // Cache-Control: no-store agar browser tidak cache URL (URL GDrive expire)
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(302, directUrl);
+    console.log(`[VIDEO] Redirect ${fileId} → GDrive`);
 
-      const directUrl = await resolveGDriveDirectUrl(fileId);
-
-      const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-        'Accept': '*/*',
-      };
-
-      // Teruskan Range header dari browser (untuk seek/skip)
-      if (req.headers['range']) {
-        headers['Range'] = req.headers['range'];
-      }
-
-      const upstream = await fetch(directUrl, { headers, redirect: 'follow' });
-
-      if (!upstream.ok && upstream.status !== 206) {
-        proxyUrlCache.delete(fileId);
-        console.error(`[PROXY] Upstream error ${upstream.status} id=${fileId} attempt=${attempt}`);
-        if (attempt < MAX_PROXY_RETRY) continue; // retry
-        return res.status(502).json({ error: 'Video tidak dapat dimuat dari GDrive' });
-      }
-
-      // Cek apakah response adalah HTML (bukan video) — artinya dapat halaman konfirmasi GDrive
-      const ct = upstream.headers.get('content-type') || '';
-      if (ct.includes('text/html')) {
-        proxyUrlCache.delete(fileId);
-        console.warn(`[PROXY] GDrive kembalikan HTML id=${fileId} attempt=${attempt} — ${attempt < MAX_PROXY_RETRY ? 'retry' : 'gagal'}`);
-        if (attempt < MAX_PROXY_RETRY) {
-          // Buang body HTML agar koneksi bersih sebelum retry
-          await upstream.body?.cancel().catch(() => {});
-          continue; // retry dengan URL baru
-        }
-        return res.status(502).json({ error: 'GDrive mengembalikan halaman HTML, bukan video' });
-      }
-
-      // URL valid — stream ke client
-      res.setHeader('Content-Type',  ct || 'video/mp4');
-      res.setHeader('Accept-Ranges', upstream.headers.get('accept-ranges') || 'bytes');
-      res.setHeader('Cache-Control', 'private, max-age=3600');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-
-      const contentLength = upstream.headers.get('content-length');
-      const contentRange  = upstream.headers.get('content-range');
-      if (contentLength) res.setHeader('Content-Length', contentLength);
-      if (contentRange)  res.setHeader('Content-Range',  contentRange);
-
-      res.status(contentRange ? 206 : 200);
-
-      // Stream pipe dengan backpressure
-      const reader = upstream.body.getReader();
-      let cancelled = false;
-
-      req.on('close', () => {
-        cancelled = true;
-        reader.cancel().catch(() => {});
-      });
-
-      await (async () => {
-        try {
-          while (!cancelled) {
-            const { done, value } = await reader.read();
-            if (done) { res.end(); break; }
-            const ok = res.write(value);
-            if (!ok) await new Promise(r => res.once('drain', r));
-          }
-        } catch (e) {
-          if (!cancelled) console.error('[PROXY] Stream err:', e.message);
-        }
-      })();
-
-      return; // sukses — keluar dari retry loop
-
-    } catch (err) {
-      proxyUrlCache.delete(fileId);
-      console.error(`[PROXY] Error attempt=${attempt}:`, err.message);
-      if (attempt >= MAX_PROXY_RETRY) {
-        if (!res.headersSent) res.status(500).json({ error: 'Server gagal fetch video' });
-        return;
-      }
-      // Lanjut retry
-    }
+  } catch (err) {
+    console.error('[VIDEO] Gagal resolve URL GDrive:', err.message);
+    proxyUrlCache.delete(fileId);
+    res.status(502).json({ error: 'Video tidak dapat dimuat dari GDrive' });
   }
 });
 
 // ================================================================
 // CLOUDFLARE TURN CREDENTIALS
-// GET /api/turn-credentials — generate kredensial TURN dari Cloudflare
-// Dipanggil oleh client setelah login, sebelum WebRTC dibuat
 // ================================================================
 app.get('/api/turn-credentials', async (req, res) => {
-  // Wajib login
   const token = (req.headers['authorization'] || '').split(' ')[1];
   if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Token tidak valid' }); }
 
-  // Kembalikan dari cache jika masih valid
   if (cfTurnCache && (Date.now() - cfTurnCacheTime) < CF_TURN_TTL) {
     return res.json({ success: true, iceServers: cfTurnCache, cached: true });
+  }
+
+  if (!CF_TURN_KEY_ID || !CF_TURN_API_KEY) {
+    return res.json({ success: false, iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]});
   }
 
   try {
@@ -1108,36 +1028,22 @@ app.get('/api/turn-credentials', async (req, res) => {
       `https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_KEY_ID}/credentials/generate`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${CF_TURN_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ttl: 86400 }) // 24 jam
+        headers: { 'Authorization': `Bearer ${CF_TURN_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ttl: 86400 })
       }
     );
-
-    if (!cfRes.ok) {
-      const errBody = await cfRes.text();
-      console.error(`[TURN] Cloudflare API error ${cfRes.status}:`, errBody);
-      throw new Error(`Cloudflare API ${cfRes.status}`);
-    }
-
+    if (!cfRes.ok) throw new Error(`Cloudflare API ${cfRes.status}: ${await cfRes.text()}`);
     const data = await cfRes.json();
     cfTurnCache     = data.iceServers;
     cfTurnCacheTime = Date.now();
-    console.log(`[TURN] Kredensial Cloudflare berhasil di-generate (${data.iceServers?.length} servers)`);
+    console.log(`[TURN] Cloudflare credentials OK (${data.iceServers?.length} servers)`);
     res.json({ success: true, iceServers: data.iceServers });
-
   } catch (err) {
-    console.error('[TURN] Gagal ambil kredensial Cloudflare:', err.message);
-    // Fallback ke Google STUN jika Cloudflare gagal
-    res.json({
-      success: false,
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    });
+    console.error('[TURN] Gagal:', err.message);
+    res.json({ success: false, iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]});
   }
 });
 
