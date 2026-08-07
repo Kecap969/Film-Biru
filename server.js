@@ -917,17 +917,10 @@ setInterval(() => {
 }, 15000);
 
 // ================================================================
-// VIDEO REDIRECT — arahkan langsung ke GDrive (hemat bandwidth Railway)
+// PROXY VIDEO — stream video GDrive lewat server
 // GET /api/proxy-video?id=FILE_ID&token=TOKEN
-//
-// SEBELUM: User → Railway (stream semua byte) → GDrive  [BOROS]
-// SEKARANG: User → Railway (cek token → redirect) → GDrive langsung [HEMAT]
-//
-// Video byte tidak lewat Railway sama sekali.
-// URL GDrive di-cache server & expire otomatis ~20 menit.
 // ================================================================
 
-// Cache URL direct GDrive per fileId
 const proxyUrlCache = new Map(); // fileId → { url, expires }
 
 async function resolveGDriveDirectUrl(fileId) {
@@ -939,48 +932,42 @@ async function resolveGDriveDirectUrl(fileId) {
     'Accept': '*/*',
   };
 
-  // Coba beberapa URL GDrive sampai dapat URL video langsung
-  const candidates = [
-    `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
-    `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`,
-  ];
+  let url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
 
-  for (const startUrl of candidates) {
-    let url = startUrl;
-    for (let i = 0; i < 5; i++) {
-      const r = await fetch(url, { headers: baseHeaders, redirect: 'manual' });
+  for (let i = 0; i < 5; i++) {
+    const r = await fetch(url, { headers: baseHeaders, redirect: 'manual' });
 
-      if (r.status === 200) {
-        const ct = r.headers.get('content-type') || '';
-        if (ct.startsWith('video/') || ct.startsWith('application/octet') || ct === 'binary/octet-stream') {
-          proxyUrlCache.set(fileId, { url, expires: Date.now() + 20 * 60 * 1000 }); // cache 20 menit
-          return url;
-        }
-        // Halaman konfirmasi GDrive — cari token confirm
-        const html = await r.text();
-        const match = html.match(/confirm=([0-9A-Za-z_\-]+)/);
-        if (match) { url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${match[1]}`; continue; }
-        break;
+    if (r.status === 200) {
+      const ct = r.headers.get('content-type') || '';
+      if (ct.startsWith('video/') || ct.startsWith('application/octet') || ct === 'binary/octet-stream') {
+        proxyUrlCache.set(fileId, { url, expires: Date.now() + 45 * 60 * 1000 });
+        return url;
       }
-
-      if ([301, 302, 307, 308].includes(r.status)) {
-        const loc = r.headers.get('location');
-        if (!loc) break;
-        url = loc;
+      const html = await r.text();
+      const match = html.match(/confirm=([0-9A-Za-z_\-]+)/);
+      if (match) {
+        url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${match[1]}`;
         continue;
       }
-      break;
+      url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+      continue;
     }
+
+    if ([301, 302, 307, 308].includes(r.status)) {
+      const location = r.headers.get('location');
+      if (!location) break;
+      url = location;
+      continue;
+    }
+    break;
   }
 
-  // Fallback: pakai URL usercontent langsung (paling stabil)
-  const fallback = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-  proxyUrlCache.set(fileId, { url: fallback, expires: Date.now() + 10 * 60 * 1000 }); // cache 10 menit
-  return fallback;
+  url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+  proxyUrlCache.set(fileId, { url, expires: Date.now() + 15 * 60 * 1000 });
+  return url;
 }
 
 app.get('/api/proxy-video', async (req, res) => {
-  // Wajib token valid
   const token = (req.headers['authorization'] || '').split(' ')[1] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Token tidak valid' }); }
@@ -988,19 +975,74 @@ app.get('/api/proxy-video', async (req, res) => {
   const fileId = req.query.id;
   if (!fileId) return res.status(400).json({ error: 'Parameter id wajib diisi' });
 
-  try {
-    const directUrl = await resolveGDriveDirectUrl(fileId);
+  const MAX_RETRY = 2;
+  for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
+    try {
+      if (attempt > 0) proxyUrlCache.delete(fileId);
 
-    // Redirect ke GDrive langsung — video byte tidak lewat Railway
-    // Cache-Control: no-store agar browser tidak cache URL (URL GDrive expire)
-    res.setHeader('Cache-Control', 'no-store');
-    res.redirect(302, directUrl);
-    console.log(`[VIDEO] Redirect ${fileId} → GDrive`);
+      const directUrl = await resolveGDriveDirectUrl(fileId);
+      const headers   = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+        'Accept': '*/*',
+      };
+      if (req.headers['range']) headers['Range'] = req.headers['range'];
 
-  } catch (err) {
-    console.error('[VIDEO] Gagal resolve URL GDrive:', err.message);
-    proxyUrlCache.delete(fileId);
-    res.status(502).json({ error: 'Video tidak dapat dimuat dari GDrive' });
+      const upstream = await fetch(directUrl, { headers, redirect: 'follow' });
+
+      if (!upstream.ok && upstream.status !== 206) {
+        proxyUrlCache.delete(fileId);
+        if (attempt < MAX_RETRY) continue;
+        return res.status(502).json({ error: 'Video tidak dapat dimuat dari GDrive' });
+      }
+
+      const ct = upstream.headers.get('content-type') || '';
+      if (ct.includes('text/html')) {
+        proxyUrlCache.delete(fileId);
+        await upstream.body?.cancel().catch(() => {});
+        if (attempt < MAX_RETRY) continue;
+        return res.status(502).json({ error: 'GDrive mengembalikan halaman konfirmasi' });
+      }
+
+      res.setHeader('Content-Type',        ct || 'video/mp4');
+      res.setHeader('Accept-Ranges',       upstream.headers.get('accept-ranges') || 'bytes');
+      res.setHeader('Cache-Control',       'private, max-age=3600');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      // Override Content-Disposition agar browser putar di halaman, bukan download
+      res.setHeader('Content-Disposition', 'inline');
+
+      const contentLength = upstream.headers.get('content-length');
+      const contentRange  = upstream.headers.get('content-range');
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      if (contentRange)  res.setHeader('Content-Range',  contentRange);
+
+      res.status(contentRange ? 206 : 200);
+
+      const reader    = upstream.body.getReader();
+      let cancelled   = false;
+      req.on('close', () => { cancelled = true; reader.cancel().catch(() => {}); });
+
+      await (async () => {
+        try {
+          while (!cancelled) {
+            const { done, value } = await reader.read();
+            if (done) { res.end(); break; }
+            const ok = res.write(value);
+            if (!ok) await new Promise(r => res.once('drain', r));
+          }
+        } catch (e) {
+          if (!cancelled) console.error('[PROXY] Stream err:', e.message);
+        }
+      })();
+
+      return;
+
+    } catch (err) {
+      proxyUrlCache.delete(fileId);
+      if (attempt >= MAX_RETRY) {
+        if (!res.headersSent) res.status(500).json({ error: 'Server gagal fetch video' });
+        return;
+      }
+    }
   }
 });
 
