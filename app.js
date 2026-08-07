@@ -16,13 +16,31 @@ const API_BASE = (
   window.location.hostname === '127.0.0.1'
 ) ? 'http://localhost:3000' : '';
 
-// TURN servers — ExpressTURN (kredensial pribadi)
-const TURN_SERVERS = [
+// TURN servers — Cloudflare TURN (kredensial dinamis dari server)
+// Nilai awal hanya fallback STUN; akan diisi oleh fetchTurnServers() setelah login
+let TURN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'turn:free.expressturn.com:3478',               username: '000000002100917609', credential: 'sFeUMgg3Xw1dHcL31uthDgHalc8=' },
-  { urls: 'turn:free.expressturn.com:3478?transport=tcp', username: '000000002100917609', credential: 'sFeUMgg3Xw1dHcL31uthDgHalc8=' }
+  { urls: 'stun:stun1.l.google.com:19302' }
 ];
+
+async function fetchTurnServers() {
+  const token = authToken || getCookie('lb_token') || sessionStorage.getItem('lb_token');
+  if (!token) return;
+  try {
+    const res  = await fetch(`${API_BASE}/api/turn-credentials`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data.iceServers && data.iceServers.length > 0) {
+      TURN_SERVERS = data.iceServers;
+      console.log(`[TURN] Cloudflare credentials loaded — ${TURN_SERVERS.length} server`);
+    } else {
+      console.warn('[TURN] Fallback ke STUN (Cloudflare tidak tersedia)');
+    }
+  } catch (e) {
+    console.warn('[TURN] Gagal fetch kredensial, pakai fallback STUN:', e.message);
+  }
+}
 
 // ================================================================
 // STATE
@@ -195,6 +213,9 @@ async function doLogin(name, password) {
     currentUser = data.user;
     setCookie('lb_token', authToken, 8); sessionStorage.setItem('lb_token', authToken);
     isLoggingIn = false;
+
+    // Ambil kredensial TURN Cloudflare sebelum WebRTC dipakai
+    await fetchTurnServers();
 
     if (currentUser.role === 'admin') enterAdminDashboard();
     else showScreen('screen-consent');
@@ -2072,6 +2093,9 @@ async function restoreSession() {
     const data = await res.json();
     if (!data.success) { deleteCookie('lb_token'); sessionStorage.removeItem('lb_token'); sessionStorage.removeItem('lb_session_id'); authToken = null; return; }
     currentUser = data.user;
+
+    // Refresh kredensial TURN Cloudflare (mungkin expire jika session lama)
+    await fetchTurnServers();
 
     if (currentUser.role === 'admin') {
       enterAdminDashboard();
