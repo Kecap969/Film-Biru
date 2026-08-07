@@ -53,6 +53,16 @@ const GDRIVE_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
 const GDRIVE_FOLDER_ID_2 = process.env.GDRIVE_FOLDER_ID_2 || null;
 const GDRIVE_API_KEY_2   = process.env.GDRIVE_API_KEY_2   || GDRIVE_API_KEY;
 
+// ===========================
+// CLOUDFLARE TURN CONFIG
+// ===========================
+const CF_TURN_KEY_ID  = process.env.CF_TURN_KEY_ID  || 'ea52534c8e9f896f83c4cb968f7412fc';
+const CF_TURN_API_KEY = process.env.CF_TURN_API_KEY || '0b6a1677fc63591008aa09b9e0ead5431a9249506ae75b9e16d149d6976e34b0';
+// Cache kredensial TURN agar tidak hit Cloudflare API setiap request
+let cfTurnCache     = null;
+let cfTurnCacheTime = 0;
+const CF_TURN_TTL   = 12 * 60 * 60 * 1000; // 12 jam (lebih pendek dari TTL 24j agar aman)
+
 // Cache film dari GDrive agar tidak hit API setiap request
 let gdriveFilmsCache = [];
 let gdriveCacheTime  = 0;
@@ -1074,6 +1084,60 @@ app.get('/api/proxy-video', async (req, res) => {
       }
       // Lanjut retry
     }
+  }
+});
+
+// ================================================================
+// CLOUDFLARE TURN CREDENTIALS
+// GET /api/turn-credentials — generate kredensial TURN dari Cloudflare
+// Dipanggil oleh client setelah login, sebelum WebRTC dibuat
+// ================================================================
+app.get('/api/turn-credentials', async (req, res) => {
+  // Wajib login
+  const token = (req.headers['authorization'] || '').split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
+  try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Token tidak valid' }); }
+
+  // Kembalikan dari cache jika masih valid
+  if (cfTurnCache && (Date.now() - cfTurnCacheTime) < CF_TURN_TTL) {
+    return res.json({ success: true, iceServers: cfTurnCache, cached: true });
+  }
+
+  try {
+    const cfRes = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_KEY_ID}/credentials/generate`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${CF_TURN_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ttl: 86400 }) // 24 jam
+      }
+    );
+
+    if (!cfRes.ok) {
+      const errBody = await cfRes.text();
+      console.error(`[TURN] Cloudflare API error ${cfRes.status}:`, errBody);
+      throw new Error(`Cloudflare API ${cfRes.status}`);
+    }
+
+    const data = await cfRes.json();
+    cfTurnCache     = data.iceServers;
+    cfTurnCacheTime = Date.now();
+    console.log(`[TURN] Kredensial Cloudflare berhasil di-generate (${data.iceServers?.length} servers)`);
+    res.json({ success: true, iceServers: data.iceServers });
+
+  } catch (err) {
+    console.error('[TURN] Gagal ambil kredensial Cloudflare:', err.message);
+    // Fallback ke Google STUN jika Cloudflare gagal
+    res.json({
+      success: false,
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
   }
 });
 
