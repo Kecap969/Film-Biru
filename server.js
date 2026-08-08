@@ -1076,10 +1076,15 @@ app.get('/api/turn-credentials', async (req, res) => {
     );
     if (!cfRes.ok) throw new Error(`Cloudflare API ${cfRes.status}: ${await cfRes.text()}`);
     const data = await cfRes.json();
-    cfTurnCache     = data.iceServers;
+    // FIX: Cloudflare API mengembalikan iceServers sebagai object tunggal,
+    // bukan array. RTCPeerConnection dan client butuh array. Normalize di sini.
+    const iceServersArr = Array.isArray(data.iceServers)
+      ? data.iceServers
+      : (data.iceServers ? [data.iceServers] : []);
+    cfTurnCache     = iceServersArr;
     cfTurnCacheTime = Date.now();
-    console.log(`[TURN] Cloudflare credentials OK (${data.iceServers?.length} servers)`);
-    res.json({ success: true, iceServers: data.iceServers });
+    console.log(`[TURN] Cloudflare credentials OK (${iceServersArr.length} servers)`);
+    res.json({ success: true, iceServers: iceServersArr });
   } catch (err) {
     console.error('[TURN] Gagal:', err.message);
     res.json({ success: false, iceServers: [
