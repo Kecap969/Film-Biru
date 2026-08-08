@@ -1138,24 +1138,23 @@ function expandSession(sessionId) {
 
 function warnFromModal() {
   if (!currentExpandedSession) return;
-  const sessionId = currentExpandedSession;
-  // Simpan sessionId sebelum closeExpandSession() mereset currentExpandedSession = null
-  warnSession(sessionId);
-  closeExpandSession();
+  // BUG FIX: jangan tutup modal — admin tetap di fullscreen view
+  // setelah kirim peringatan. Modal hanya ditutup lewat tombol ✕ Tutup.
+  warnSession(currentExpandedSession);
+
+  // Feedback visual: tombol berubah jadi "✅ Terkirim" sebentar
+  const btn = document.querySelector('.vm-btn.warn');
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ Terkirim';
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+  }
 }
 
 function closeExpandSession() {
-  // BUG FIX: Keluar fullscreen dulu jika browser sedang fullscreen.
-  // Tanpa ini, menekan tombol Peringatan / Tutup di video-modal saat
-  // fs-modal pernah dibuka akan menyebabkan layar kembali ke fullscreen
-  // karena document.fullscreenElement masih aktif.
-  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
-  if (isFs) {
-    const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
-    if (exitFs) exitFs.call(document).catch(() => {});
-  }
   const vmVideo = document.getElementById('vm-video');
-  if (vmVideo) { vmVideo.pause(); vmVideo.srcObject = null; }
+  if (vmVideo) { vmVideo.srcObject = null; }
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
   currentExpandedSession = null;
