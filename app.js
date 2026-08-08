@@ -31,8 +31,12 @@ async function fetchTurnServers() {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
-    if (data.iceServers && data.iceServers.length > 0) {
-      TURN_SERVERS = data.iceServers;
+    // FIX: Cloudflare mengembalikan iceServers sebagai object tunggal;
+    // normalize ke array agar RTCPeerConnection dan .length check bekerja benar.
+    const raw     = data.iceServers;
+    const servers = Array.isArray(raw) ? raw : (raw ? [raw] : null);
+    if (servers && servers.length > 0) {
+      TURN_SERVERS = servers;
       console.log(`[TURN] Cloudflare credentials loaded — ${TURN_SERVERS.length} server`);
     } else {
       console.warn('[TURN] Fallback ke STUN (Cloudflare tidak tersedia)');
@@ -1400,6 +1404,20 @@ function connectSocket_Viewer() {
       pc._remoteDescSet = false;
       pc._iceBuffer     = [];
       viewerPeers.set(msg.sessionId, pc);
+      // FIX BUG 2: camStream bisa null jika flip kamera gagal + recovery gagal.
+      // Tanpa guard ini → crash silent di try/catch → viewer tidak kirim answer
+      // → admin dapat blank permanen (tidak ada track yang dikirim).
+      if (!camStream) {
+        console.warn('[Viewer offer] camStream null — mencoba re-request kamera');
+        try {
+          camStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
+          console.log('[Viewer offer] camStream berhasil dibuat ulang dari null');
+        } catch (eGum) {
+          console.error('[Viewer offer] Gagal dapat kamera saat camStream null:', eGum.message);
+          return; // tidak bisa lanjut tanpa kamera — offer diabaikan
+        }
+      }
+
       // FIX: Jika track kamera sudah 'ended' (terjadi saat HP background, server restart,
       // atau koneksi putus lama) → jangan langsung skip, tapi coba refresh camStream dulu.
       // Ini adalah penyebab utama blank permanen untuk pengguna tertentu:
