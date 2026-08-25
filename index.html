@@ -36,10 +36,13 @@
      1. LOGIN
      ================================================================ -->
 <div class="screen active" id="screen-login">
-  <div class="login-simple-bg"></div>
+  <!-- Aurora background — orb animasi via CSS, grain texture untuk kedalaman -->
+  <div class="login-simple-bg">
+    <div class="ls-grain"></div>
+  </div>
 
-  <!-- Background slideshow — full layar -->
-  <div class="card-cover">
+  <!-- Card cover tetap di DOM (JS slideshow perlu elemen ini), tapi disembunyikan via CSS -->
+  <div class="card-cover" aria-hidden="true">
     <div class="card-cover-overlay"></div>
   </div>
 
