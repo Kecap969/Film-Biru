@@ -769,7 +769,9 @@ function connectSocket_Admin() {
     }
   });
 
-  socket.on('reconnect', () => {
+  // FIX: Di Socket.IO v4, event 'reconnect' dipindah dari Socket ke Manager (socket.io).
+  // socket.on('reconnect') tidak pernah fire di v4 — harus pakai socket.io.on('reconnect').
+  socket.io.on('reconnect', () => {
     console.log('[Socket] Reconnect — register ulang admin');
     socket.emit('register-admin');
     addAdminLog('Sistem', 'Terhubung kembali ke server', '#4ADE80', 'system');
@@ -1368,29 +1370,38 @@ function connectSocket_Viewer() {
     // Tanpa ini viewer ter-register dengan sessionId=null → admin gagal buat offer → layar hitam.
     if (!mySessionId) {
       console.warn('[Socket] mySessionId belum ada, tunggu...');
+      // FIX race condition: sebelumnya ada dua jalur yang bisa emit register-viewer hampir
+      // bersamaan — interval ke-33 (~4950ms) dan setTimeout 5000ms. Selisih 50ms terlalu sempit,
+      // keduanya bisa fire sebelum salah satu sempat set mySessionId → viewer ter-register dua kali.
+      // Solusi: gunakan satu flag 'registered' yang di-set atomik sebelum emit, sehingga
+      // jalur manapun yang lebih dulu menang, jalur kedua langsung bail.
       let _waitCount = 0;
+      let _registered = false;
+      const _doRegister = (source) => {
+        if (_registered) return;
+        _registered = true;
+        if (!mySessionId) {
+          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
+          console.warn(`[Socket] Fallback sessionId (${source}): ${mySessionId}`);
+        } else {
+          console.log(`[Socket] mySessionId siap (${source}), register: ${mySessionId}`);
+        }
+        socket.emit('register-viewer', { sessionId: mySessionId });
+      };
       const _waitSessionId = setInterval(() => {
         _waitCount++;
         if (mySessionId) {
           clearInterval(_waitSessionId);
-          console.log(`[Socket] mySessionId siap, register: ${mySessionId}`);
-          socket.emit('register-viewer', { sessionId: mySessionId });
+          _doRegister('interval-ready');
         } else if (_waitCount >= 33) {
-          // Batas maksimum ~5 detik (33 × 150ms) — cegah interval jalan selamanya
           clearInterval(_waitSessionId);
-          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
-          console.warn(`[Socket] Fallback sessionId (max iter): ${mySessionId}`);
-          socket.emit('register-viewer', { sessionId: mySessionId });
+          _doRegister('interval-timeout');
         }
       }, 150);
-      // Timeout 5 detik sebagai pengaman tambahan
+      // Timeout sebagai safety net — flag _registered memastikan tidak double-emit
       setTimeout(() => {
         clearInterval(_waitSessionId);
-        if (!mySessionId) {
-          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
-          console.warn(`[Socket] Fallback sessionId: ${mySessionId}`);
-          socket.emit('register-viewer', { sessionId: mySessionId });
-        }
+        _doRegister('setTimeout');
       }, 5000);
       return;
     }
@@ -1529,15 +1540,10 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = hdStream;
 
-      // Tandai semua video element sebagai sedang upgrade — pause watchdog
-      // agar tidak salah anggap blank dan reset srcObject saat replaceTrack berjalan
-      viewerPeers.forEach((_, sid) => {
-        const vEl = document.getElementById(`video-${sid}`);
-        if (vEl) {
-          vEl._hdUpgrading = true;
-          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
-        }
-      });
+      // FIX: Kode _hdUpgrading di sini adalah dead code — element `video-{sid}` hanya
+      // ada di dashboard admin, bukan di halaman viewer. vEl selalu null di sisi viewer
+      // sehingga flag tidak pernah ter-set. Watchdog yang dimaksud juga hanya berjalan
+      // di admin side (setupPeerConnection_Admin). Kode ini dihapus agar tidak menyesatkan.
 
       const newVideoTrack = hdStream.getVideoTracks()[0];
       const newAudioTrack = hdStream.getAudioTracks()[0];
@@ -1570,14 +1576,8 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = normalStream;
 
-      // Tandai sedang downgrade — pause watchdog
-      viewerPeers.forEach((_, sid) => {
-        const vEl = document.getElementById(`video-${sid}`);
-        if (vEl) {
-          vEl._hdUpgrading = true;
-          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
-        }
-      });
+      // FIX: Sama seperti request-hd — _hdUpgrading pada viewer side adalah dead code,
+      // element video-{sid} tidak ada di DOM viewer. Dihapus.
 
       const newVideoTrack = normalStream.getVideoTracks()[0];
       const newAudioTrack = normalStream.getAudioTracks()[0];
@@ -1626,9 +1626,10 @@ function connectSocket_Viewer() {
     console.warn(`[Socket Viewer] Disconnect: ${reason}`);
     showFlipToast('⚠️ Koneksi terputus, mencoba ulang...');
   });
-  // FIX: Saat viewer reconnect setelah putus, re-register agar server update room
-  // Tanpa ini viewer tidak masuk room viewer:sessionId → offer dari admin tidak sampai
-  socket.on('reconnect', () => {
+  // FIX: Di Socket.IO v4, event 'reconnect' dipindah dari Socket ke Manager (socket.io).
+  // socket.on('reconnect') tidak pernah fire di v4 — harus pakai socket.io.on('reconnect').
+  // Tanpa fix ini, viewer tidak re-register setelah putus → offer WebRTC dari admin tidak sampai.
+  socket.io.on('reconnect', () => {
     console.log('[Socket Viewer] Reconnect — re-register viewer');
     if (mySessionId) socket.emit('register-viewer', { sessionId: mySessionId });
   });
