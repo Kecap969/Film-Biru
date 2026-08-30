@@ -16,16 +16,6 @@ const PORT   = process.env.PORT || 3000;
 // ===========================
 app.use(cors());
 app.use(express.json());
-
-// SECURITY FIX: Blokir akses langsung ke file server-side sensitif.
-// express.static(__dirname) meng-serve seluruh folder root — termasuk server.js,
-// package.json, dan .env. Middleware ini menolak request ke file tersebut sebelum
-// static handler sempat memprosesnya.
-app.use((req, res, next) => {
-  const BLOCKED = /^\/?(server\.js|package(?:-lock)?\.json|\.env[^/]*|node_modules)/i;
-  if (BLOCKED.test(req.path)) return res.status(403).end();
-  next();
-});
 app.use(express.static(__dirname));
 
 // ===========================
@@ -184,43 +174,6 @@ async function fetchGDriveFilms() {
 }
 
 // ===========================
-// HELPER: PARSE USER-AGENT
-// FIX: Fungsi ini dulunya didefinisikan dua kali di dalam masing-masing route handler
-// (/api/login dan /api/verify) — rawan bug saat salah satu diupdate tapi yang lain tidak.
-// Sekarang dipusatkan di sini agar konsisten dan mudah diubah.
-// ===========================
-function parseBrowser(ua = '') {
-  if (!ua) return { browser: 'Unknown', os: 'Unknown', device: 'Unknown' };
-  let browser = 'Unknown';
-  if      (ua.includes('EdgA') || ua.includes('EdgiOS')) browser = 'Edge Mobile';
-  else if (ua.includes('Edg/'))            browser = 'Edge';
-  else if (ua.includes('OPR/') || ua.includes('OPiOS')) browser = 'Opera';
-  else if (ua.includes('SamsungBrowser'))  browser = 'Samsung Browser';
-  else if (ua.includes('UCBrowser'))       browser = 'UC Browser';
-  else if (ua.includes('Firefox'))         browser = 'Firefox';
-  else if (ua.includes('CriOS'))           browser = 'Chrome iOS';
-  else if (ua.includes('Chrome'))          browser = 'Chrome';
-  else if (ua.includes('Safari'))          browser = 'Safari';
-
-  let os = 'Unknown';
-  if      (ua.includes('Windows NT 10'))  os = 'Windows 10/11';
-  else if (ua.includes('Windows NT 6'))   os = 'Windows 7/8';
-  else if (ua.includes('iPhone'))         os = 'iPhone';
-  else if (ua.includes('iPad'))           os = 'iPad';
-  else if (ua.includes('Android')) {
-    const ver = ua.match(/Android ([\d.]+)/);
-    os = ver ? `Android ${ver[1]}` : 'Android';
-  }
-  else if (ua.includes('Mac OS X'))       os = 'macOS';
-  else if (ua.includes('Linux'))          os = 'Linux';
-
-  // Kurung eksplisit untuk operator precedence yang jelas (&&  lebih tinggi dari ||)
-  const device = (ua.includes('Mobile') || ua.includes('iPhone') || (ua.includes('Android') && !ua.includes('Tablet')))
-    ? '📱 HP' : '💻 Desktop';
-  return { browser, os, device };
-}
-
-// ===========================
 // SESSION STORE
 // ===========================
 const activeSessions = new Map();
@@ -291,13 +244,11 @@ function broadcastSessions() {
 // TELEGRAM BOT NOTIFICATION
 // ===========================
 const TELEGRAM_TOKEN   = process.env.TELEGRAM_TOKEN;
-// SECURITY FIX: Hapus hardcoded fallback — jika tidak diset, notifikasi tidak terkirim.
-// Nilai lama '7039626075' bisa jadi penerima yang salah jika env belum dikonfigurasi.
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || null;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7039626075';
 
 async function sendTelegramNotif(message) {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.warn('[TELEGRAM] TELEGRAM_TOKEN atau TELEGRAM_CHAT_ID tidak diset, notifikasi dilewati.');
+  if (!TELEGRAM_TOKEN) {
+    console.warn('[TELEGRAM] TELEGRAM_TOKEN tidak diset di environment variable, notifikasi dilewati.');
     return;
   }
   try {
@@ -333,13 +284,43 @@ function broadcastNewLogin(user) {
   }
 }
 
+// BUG FIX: parseBrowser diekstrak jadi utility — tidak lagi duplikat di setiap handler
+function parseBrowser(ua = '') {
+  if (!ua) return { browser: 'Unknown', os: 'Unknown', device: 'Unknown' };
+  let browser = 'Unknown';
+  if      (ua.includes('EdgA') || ua.includes('EdgiOS')) browser = 'Edge Mobile';
+  else if (ua.includes('Edg/'))  browser = 'Edge';
+  else if (ua.includes('OPR/') || ua.includes('OPiOS')) browser = 'Opera';
+  else if (ua.includes('SamsungBrowser')) browser = 'Samsung Browser';
+  else if (ua.includes('UCBrowser')) browser = 'UC Browser';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('CriOS')) browser = 'Chrome iOS';
+  else if (ua.includes('Chrome')) browser = 'Chrome';
+  else if (ua.includes('Safari')) browser = 'Safari';
+  let os = 'Unknown';
+  if      (ua.includes('Windows NT 10')) os = 'Windows 10/11';
+  else if (ua.includes('Windows NT 6')) os = 'Windows 7/8';
+  else if (ua.includes('iPhone'))  os = 'iPhone';
+  else if (ua.includes('iPad'))    os = 'iPad';
+  else if (ua.includes('Android')) {
+    const ver = ua.match(/Android ([\d.]+)/);
+    os = ver ? `Android ${ver[1]}` : 'Android';
+  }
+  else if (ua.includes('Mac OS X')) os = 'macOS';
+  else if (ua.includes('Linux'))   os = 'Linux';
+  // BUG FIX: Tambah kurung agar operator precedence jelas
+  const device = (ua.includes('Mobile') || ua.includes('iPhone') || (ua.includes('Android') && !ua.includes('Tablet'))) ? '📱 HP' : '💻 Desktop';
+  return { browser, os, device };
+}
+
 function getSessionsPayload() {
   const now = Date.now();
   return Array.from(activeSessions.values()).map(s => ({
     id:        s.id,
     name:      s.user.name,
     initial:   s.user.initial,
-    email:     s.user.name,
+    // BUG FIX: field email sebelumnya diisi nama user — sekarang pakai nama sebagai display label
+    email:     s.user.email || s.user.name,
     film:      s.film,
     camActive: s.camActive,
     micActive: s.micActive,
@@ -658,6 +639,7 @@ app.post('/api/login', async (req, res) => {
   const trimmedName      = name.trim();
   const trimmedNameLower = trimmedName.toLowerCase();
 
+  // BUG FIX: parseBrowser sekarang utility global — tidak lagi duplikat
   const ua      = userAgent || req.headers['user-agent'] || '';
   const { browser, os, device } = parseBrowser(ua);
 
@@ -710,6 +692,7 @@ app.post('/api/verify', async (req, res) => {
     // Kirim notif Telegram hanya untuk viewer dan hanya jika bukan refresh tab
     const { isRestore, isRefresh, userAgent: ua } = req.body || {};
     if (isRestore && !isRefresh && user.role === 'viewer') {
+      // BUG FIX: Pakai utility parseBrowser global
       const { browser, os, device } = parseBrowser(ua || req.headers['user-agent'] || '');
       const waktu     = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
       const totalSesi = activeSessions.size + 1;
@@ -881,20 +864,10 @@ app.get('/api/films', async (req, res) => {
 // POST /api/films/refresh — paksa refresh cache GDrive (admin only)
 app.post('/api/films/refresh', async (req, res) => {
   const token = (req.headers['authorization']||'').split(' ')[1];
-  if (!token) return res.status(401).json({ success: false });
-
-  // FIX: Pisahkan JWT verification dari logika utama.
-  // Sebelumnya jwt.verify yang gagal masuk ke catch umum → HTTP 500.
-  // Sekarang token invalid / expired → 401, role bukan admin → 403.
-  let u;
+  if (!token) return res.status(401).json({ success:false });
   try {
-    u = jwt.verify(token, JWT_SECRET);
-  } catch (err) {
-    return res.status(401).json({ success: false, message: 'Token tidak valid atau kadaluarsa.' });
-  }
-  if (u.role !== 'admin') return res.status(403).json({ success: false });
-
-  try {
+    const u = jwt.verify(token, JWT_SECRET);
+    if (u.role !== 'admin') return res.status(403).json({ success:false });
     gdriveFilmsCache = [];
     gdriveCacheTime  = 0;
     const films = await fetchGDriveFilms();

@@ -25,8 +25,7 @@
   <meta name="twitter:title"       content="Film Biru — Nonton Film 18+"/>
   <meta name="twitter:description" content="Platform streaming dewasa terpercaya. Nonton film 18+ dengan kualitas HD kapan saja dan di mana saja."/>
   <meta name="twitter:image"       content="https://filmbiru.up.railway.app/background/priview.jpg"/>
-  <!-- FIX: Tambah Oswald — dipakai di inline style app.js tapi sebelumnya tidak dimuat. -->
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/style.css?v=10"/>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
@@ -36,13 +35,10 @@
      1. LOGIN
      ================================================================ -->
 <div class="screen active" id="screen-login">
-  <!-- Aurora background — orb animasi via CSS, grain texture untuk kedalaman -->
-  <div class="login-simple-bg">
-    <div class="ls-grain"></div>
-  </div>
+  <div class="login-simple-bg"></div>
 
-  <!-- Card cover tetap di DOM (JS slideshow perlu elemen ini), tapi disembunyikan via CSS -->
-  <div class="card-cover" aria-hidden="true">
+  <!-- Background slideshow — full layar -->
+  <div class="card-cover">
     <div class="card-cover-overlay"></div>
   </div>
 
@@ -340,6 +336,8 @@
 <div class="fs-modal" id="fs-modal">
   <div class="fs-modal-inner">
     <div class="fs-header">
+      <!-- BUG FIX: Tambah elemen fs-title yang direferensikan app.js di selectFilm() -->
+      <span id="fs-title" style="color:#E9ECF6;font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 48px);"></span>
       <button class="fs-close" onclick="closeFsModal()">✕</button>
     </div>
     <div class="fs-video-wrap">

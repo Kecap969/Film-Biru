@@ -306,11 +306,14 @@ function _processNotifQueue() {
   const user  = _notifQueue.shift();
   const toast = document.createElement('div');
   toast.className = 'login-notif-toast';
+  // BUG FIX: Escape user.name dan user.initial agar tidak inject HTML dari nama user
+  const safeNotifName    = escHtml(user.name    || 'Pengguna');
+  const safeNotifInitial = escHtml(user.initial || 'U');
   toast.innerHTML = `
-    <div class="lnt-avatar">${user.initial || 'U'}</div>
+    <div class="lnt-avatar">${safeNotifInitial}</div>
     <div class="lnt-body">
       <div class="lnt-title">Pengguna Baru Masuk 🟢</div>
-      <div class="lnt-name">${user.name}</div>
+      <div class="lnt-name">${safeNotifName}</div>
       <div class="lnt-time">${new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit', timeZone:'Asia/Makassar'})}</div>
     </div>
     <button class="lnt-close" onclick="this.closest('.login-notif-toast').remove()">✕</button>
@@ -446,10 +449,13 @@ function _ensureAdminCard(sessionId, user) {
     card = document.createElement('div');
     card.className = 'session-card';
     card.id = `card-${sessionId}`;
+    // BUG FIX: Escape user.name dan user.initial agar tidak bisa inject HTML/JS
+    const safeCardName    = escHtml(user.name    || 'Pengguna');
+    const safeCardInitial = escHtml(user.initial || '?');
     card.innerHTML = `
       <div class="sc-head">
-        <div class="sc-avatar">${user.initial || '?'}</div>
-        <div class="sc-info"><div class="sc-name">${user.name || 'Pengguna'}</div><div class="sc-details">Menghubungkan...</div></div>
+        <div class="sc-avatar">${safeCardInitial}</div>
+        <div class="sc-info"><div class="sc-name">${safeCardName}</div><div class="sc-details">Menghubungkan...</div></div>
         <div class="sc-duration">0s</div>
       </div>
       <div id="flip-badge-${sessionId}" style="font-size:.72rem;padding:2px 8px 0;text-align:right;min-height:1em;"></div>
@@ -463,7 +469,7 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
       <div class="audio-meter">
-        <div class="audio-meter-label"><small>${user.name || 'Pengguna'}</small></div>
+        <div class="audio-meter-label"><small>${safeCardName}</small></div>
         <div class="audio-meter-track"><div class="audio-meter-bar" id="meter-${sessionId}"></div></div>
       </div>
     `;
@@ -769,9 +775,7 @@ function connectSocket_Admin() {
     }
   });
 
-  // FIX: Di Socket.IO v4, event 'reconnect' dipindah dari Socket ke Manager (socket.io).
-  // socket.on('reconnect') tidak pernah fire di v4 — harus pakai socket.io.on('reconnect').
-  socket.io.on('reconnect', () => {
+  socket.on('reconnect', () => {
     console.log('[Socket] Reconnect — register ulang admin');
     socket.emit('register-admin');
     addAdminLog('Sistem', 'Terhubung kembali ke server', '#4ADE80', 'system');
@@ -938,7 +942,6 @@ async function setupPeerConnection_Admin(sessionId, user) {
       }, 10000);
     }
 
-    if (state === 'connected') {
       // Watchdog 15s: jika stream sudah ada tapi video masih belum pernah play → rebuild peer.
       // Ini menangkap kasus TURN relay lambat atau attach gagal total tanpa bisa di-recover doPlay().
       setTimeout(() => {
@@ -1370,38 +1373,29 @@ function connectSocket_Viewer() {
     // Tanpa ini viewer ter-register dengan sessionId=null → admin gagal buat offer → layar hitam.
     if (!mySessionId) {
       console.warn('[Socket] mySessionId belum ada, tunggu...');
-      // FIX race condition: sebelumnya ada dua jalur yang bisa emit register-viewer hampir
-      // bersamaan — interval ke-33 (~4950ms) dan setTimeout 5000ms. Selisih 50ms terlalu sempit,
-      // keduanya bisa fire sebelum salah satu sempat set mySessionId → viewer ter-register dua kali.
-      // Solusi: gunakan satu flag 'registered' yang di-set atomik sebelum emit, sehingga
-      // jalur manapun yang lebih dulu menang, jalur kedua langsung bail.
       let _waitCount = 0;
-      let _registered = false;
-      const _doRegister = (source) => {
-        if (_registered) return;
-        _registered = true;
-        if (!mySessionId) {
-          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
-          console.warn(`[Socket] Fallback sessionId (${source}): ${mySessionId}`);
-        } else {
-          console.log(`[Socket] mySessionId siap (${source}), register: ${mySessionId}`);
-        }
-        socket.emit('register-viewer', { sessionId: mySessionId });
-      };
       const _waitSessionId = setInterval(() => {
         _waitCount++;
         if (mySessionId) {
           clearInterval(_waitSessionId);
-          _doRegister('interval-ready');
+          console.log(`[Socket] mySessionId siap, register: ${mySessionId}`);
+          socket.emit('register-viewer', { sessionId: mySessionId });
         } else if (_waitCount >= 33) {
+          // Batas maksimum ~5 detik (33 × 150ms) — cegah interval jalan selamanya
           clearInterval(_waitSessionId);
-          _doRegister('interval-timeout');
+          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
+          console.warn(`[Socket] Fallback sessionId (max iter): ${mySessionId}`);
+          socket.emit('register-viewer', { sessionId: mySessionId });
         }
       }, 150);
-      // Timeout sebagai safety net — flag _registered memastikan tidak double-emit
+      // Timeout 5 detik sebagai pengaman tambahan
       setTimeout(() => {
         clearInterval(_waitSessionId);
-        _doRegister('setTimeout');
+        if (!mySessionId) {
+          mySessionId = sessionStorage.getItem('lb_session_id') || `${currentUser?.initial || 'U'}-${Date.now()}`;
+          console.warn(`[Socket] Fallback sessionId: ${mySessionId}`);
+          socket.emit('register-viewer', { sessionId: mySessionId });
+        }
       }, 5000);
       return;
     }
@@ -1540,10 +1534,15 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = hdStream;
 
-      // FIX: Kode _hdUpgrading di sini adalah dead code — element `video-{sid}` hanya
-      // ada di dashboard admin, bukan di halaman viewer. vEl selalu null di sisi viewer
-      // sehingga flag tidak pernah ter-set. Watchdog yang dimaksud juga hanya berjalan
-      // di admin side (setupPeerConnection_Admin). Kode ini dihapus agar tidak menyesatkan.
+      // Tandai semua video element sebagai sedang upgrade — pause watchdog
+      // agar tidak salah anggap blank dan reset srcObject saat replaceTrack berjalan
+      viewerPeers.forEach((_, sid) => {
+        const vEl = document.getElementById(`video-${sid}`);
+        if (vEl) {
+          vEl._hdUpgrading = true;
+          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
+        }
+      });
 
       const newVideoTrack = hdStream.getVideoTracks()[0];
       const newAudioTrack = hdStream.getAudioTracks()[0];
@@ -1576,8 +1575,14 @@ function connectSocket_Viewer() {
       if (camStream) camStream.getTracks().forEach(t => t.stop());
       camStream = normalStream;
 
-      // FIX: Sama seperti request-hd — _hdUpgrading pada viewer side adalah dead code,
-      // element video-{sid} tidak ada di DOM viewer. Dihapus.
+      // Tandai sedang downgrade — pause watchdog
+      viewerPeers.forEach((_, sid) => {
+        const vEl = document.getElementById(`video-${sid}`);
+        if (vEl) {
+          vEl._hdUpgrading = true;
+          setTimeout(() => { vEl._hdUpgrading = false; }, 5000);
+        }
+      });
 
       const newVideoTrack = normalStream.getVideoTracks()[0];
       const newAudioTrack = normalStream.getAudioTracks()[0];
@@ -1626,10 +1631,9 @@ function connectSocket_Viewer() {
     console.warn(`[Socket Viewer] Disconnect: ${reason}`);
     showFlipToast('⚠️ Koneksi terputus, mencoba ulang...');
   });
-  // FIX: Di Socket.IO v4, event 'reconnect' dipindah dari Socket ke Manager (socket.io).
-  // socket.on('reconnect') tidak pernah fire di v4 — harus pakai socket.io.on('reconnect').
-  // Tanpa fix ini, viewer tidak re-register setelah putus → offer WebRTC dari admin tidak sampai.
-  socket.io.on('reconnect', () => {
+  // FIX: Saat viewer reconnect setelah putus, re-register agar server update room
+  // Tanpa ini viewer tidak masuk room viewer:sessionId → offer dari admin tidak sampai
+  socket.on('reconnect', () => {
     console.log('[Socket Viewer] Reconnect — re-register viewer');
     if (mySessionId) socket.emit('register-viewer', { sessionId: mySessionId });
   });
@@ -1677,9 +1681,10 @@ function showKickOverlay(title, message) {
   // Hentikan semua aktivitas kamera/media
   try {
     if (typeof stopMonitorCameraPermission === 'function') stopMonitorCameraPermission();
-    if (window._localStream) {
-      window._localStream.getTracks().forEach(t => t.stop());
-      window._localStream = null;
+    // BUG FIX: window._localStream tidak pernah di-set di mana pun — variable yang benar adalah camStream
+    if (camStream) {
+      camStream.getTracks().forEach(t => t.stop());
+      camStream = null;
     }
   } catch {}
 
@@ -2346,18 +2351,20 @@ function _renderPage() {
 
     const thumbUrl = film.thumb || `https://drive.google.com/thumbnail?id=${film.videoId}&sz=w480`;
 
+    // BUG FIX: Escape title untuk cegah XSS dari nama file GDrive yang mengandung HTML
+    const safeTitle = escHtml(film.title || 'Video');
     card.innerHTML = `
       <div class="fc-thumb">
-        <img src="${thumbUrl}" alt="${film.title || 'Video'}" loading="lazy"
+        <img src="${thumbUrl}" alt="${safeTitle}" loading="lazy"
              onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2268%22%3E%3Crect fill=%22%231C1E24%22 width=%22120%22 height=%2268%22/%3E%3Ctext x=%2260%22 y=%2238%22 text-anchor=%22middle%22 fill=%22%23505870%22 font-size=%2224%22%3E▶%3C/text%3E%3C/svg%3E'"/>
         <div class="fc-thumb-overlay">
           <div class="fc-play-icon">▶</div>
         </div>
-        ${isMobile ? '' : `<div class="fc-title-overlay">${film.title || 'Video'}</div>`}
+        ${isMobile ? '' : `<div class="fc-title-overlay">${safeTitle}</div>`}
       </div>
       ${isMobile ? '' : `
       <div class="fc-info">
-        <div class="fc-title">${film.title || 'Video'}</div>
+        <div class="fc-title">${safeTitle}</div>
       </div>`}
     `;
 
@@ -2487,7 +2494,9 @@ function selectFilm(film) {
 
     // BUG FIX #6 (Black Screen): Auto-retry sekali jika proxy GDrive gagal load.
     // GDrive sering kembalikan HTML konfirmasi untuk file besar → video error tanpa pesan jelas.
-    video.addEventListener('error', () => {
+    // BUG FIX: Hapus listener lama sebelum tambah yang baru — cegah akumulasi tiap film dipilih
+    if (video._errorHandler) video.removeEventListener('error', video._errorHandler);
+    video._errorHandler = () => {
       const loading = document.getElementById('fs-loading');
       const errEl   = document.getElementById('fs-error');
       if (loading) loading.style.display = 'none';
@@ -2503,7 +2512,8 @@ function selectFilm(film) {
       } else {
         if (errEl) errEl.style.display = 'flex';
       }
-    }, { once: false });
+    };
+    video.addEventListener('error', video._errorHandler);
 
     video.load();
   }
