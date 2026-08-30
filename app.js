@@ -957,7 +957,6 @@ async function setupPeerConnection_Admin(sessionId, user) {
           if (document.getElementById(`card-${sessionId}`)) setupPeerConnection_Admin(sessionId, user);
         }
       }, 15000);
-    }
 
     if (state === 'failed' || state === 'disconnected') {
       console.warn(`[WebRTC] ${sessionId} ${state} — rebuild dalam 2s`);
