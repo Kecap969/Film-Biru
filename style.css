@@ -62,40 +62,41 @@ html, body {
 
 .login-simple-bg { display: none; }
 
-/* ── Background — box 16:9, center viewport ──────────────────── */
+/* ── Background — di dalam card, seperti sampul ─────────────── */
 .card-cover {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  /* Fit 16:9 dalam viewport — letterbox jika layar lebih tinggi,
-     pillarbox jika layar lebih lebar dari 16:9 */
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: min(100vh, calc(100vw * 9 / 16));
+  position: absolute;
+  inset: 0;
   overflow: hidden;
+  border-radius: 16px;
   background: #070810;
   z-index: 0;
-  border-radius: 6px;
-  box-shadow: 0 0 0 100vmax #070810; /* isi area di luar box dengan warna gelap */
 }
 
 .bg-slide {
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center center;
+  background-position: center top;
   opacity: 0;
   transition: opacity 1.8s ease-in-out;
   will-change: opacity;
+  transform: scale(1.04);
 }
 .bg-slide.active { opacity: 1; }
 
-/* Overlay ringan — foto terlihat full, card tetap terbaca */
+/* Overlay gradient — atas terang, bawah gelap agar form terbaca */
 .card-cover-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: rgba(4, 6, 14, 0.48);
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(4, 6, 20, 0.15) 0%,
+      rgba(4, 6, 20, 0.30) 40%,
+      rgba(4, 6, 20, 0.82) 70%,
+      rgba(4, 6, 20, 0.96) 100%
+    );
   pointer-events: none;
 }
 
@@ -119,20 +120,25 @@ html, body {
   align-self: center;
 }
 
-/* ── Card — glass mengambang di atas foto ────────────────────── */
+/* ── Card — sampul foto di dalam card ───────────────────────── */
 .login-simple-card {
   width: 100%;
-  background: rgba(6, 9, 22, 0.72);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.13);
   border-radius: 16px;
   padding: 32px 24px 26px;
   box-shadow:
-    0 8px 32px rgba(0,0,0,0.45),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+    0 12px 48px rgba(0,0,0,0.6),
+    0 2px 0 rgba(255,255,255,0.04) inset;
   position: relative;
+  overflow: hidden;    /* clip gambar ikut border-radius */
   z-index: 1;
+}
+
+/* Semua konten card di atas layer background */
+.login-simple-card > *:not(.card-cover) {
+  position: relative;
+  z-index: 2;
 }
 
 /* ── Logo ────────────────────────────────────────────────────── */
