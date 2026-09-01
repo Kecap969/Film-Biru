@@ -47,7 +47,7 @@ html, body {
 .screen.active { display: flex; }
 
 /* ================================================================
-   LOGIN SCREEN — Clean & Minimal
+   LOGIN SCREEN — Full-screen cinematic, no card
    ================================================================ */
 :root {
   --accent:      #4F6EF7;
@@ -57,106 +57,115 @@ html, body {
 /* ── Screen ─────────────────────────────────────────────────── */
 #screen-login {
   overflow: hidden;
-  background: #070810;
+  background: #05080f;
+  position: relative;
 }
 
-.login-simple-bg { display: none; }
-
-/* ── Cover photo — blok di ATAS card, seperti cover FB ──────── */
-.card-cover {
-  position: relative;           /* ambil ruang, tidak overlap form */
-  width: 100%;
-  height: 200px;
-  border-radius: 16px 16px 0 0;
-  overflow: hidden;
-  background: #0d1020;
-  flex-shrink: 0;
+/* ── Background slideshow — full screen ──────────────────────── */
+.login-bg-full {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  background: #05080f;
 }
 
 .bg-slide {
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center center;
+  background-position: center 30%;
   opacity: 0;
   transition: opacity 1.8s ease-in-out;
   will-change: opacity;
-  transform: scale(1.03);
+  transform: scale(1.04);
 }
 .bg-slide.active { opacity: 1; }
 
-/* Overlay — fade tipis di bawah cover supaya nyambung ke card */
+/* Overlay gradient — berat di bawah agar form terbaca */
 .card-cover-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    to bottom,
-    rgba(4, 6, 20, 0.05) 0%,
-    rgba(4, 6, 20, 0.10) 60%,
-    rgba(4, 6, 20, 0.55) 100%
-  );
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(5, 8, 20, 0.25)  0%,
+      rgba(5, 8, 20, 0.15) 25%,
+      rgba(5, 8, 20, 0.55) 58%,
+      rgba(5, 8, 20, 0.92) 78%,
+      rgba(5, 8, 20, 0.99) 100%
+    );
   pointer-events: none;
 }
 
-/* ── Wrapper — full layar, card flex center ───────────────────── */
-.login-simple-wrap {
-  position: fixed;
+/* ── Content overlay — flex column, brand atas, form bawah ─── */
+.login-content {
+  position: absolute;
   inset: 0;
   z-index: 2;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: env(safe-area-inset-top, 0px) 0 0;
 }
 
-/* ls-card-outer pakai margin:auto — cara paling reliable untuk
-   vertical center di dalam scroll container */
-.ls-card-outer {
-  width: calc(100% - 40px);
-  max-width: 380px;
-  margin: auto;
+/* ── Brand area (atas) ───────────────────────────────────────── */
+.login-brand-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 28px 0;
+  flex-shrink: 0;
+}
+
+.lb-logo {
+  height: 44px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.7));
+}
+
+.lb-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  padding: 2px 7px;
   align-self: center;
 }
 
-/* ── Card — cover di atas, form di bawah ─────────────────────── */
-.login-simple-card {
+/* ── Form area (bawah) — tanpa card, tanpa border ───────────── */
+.login-form-area {
+  padding: 0 24px 36px;
+  padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   width: 100%;
-  background: rgba(8, 11, 28, 0.97);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 16px;
-  padding: 0;                   /* padding dihandle ls-body */
-  box-shadow:
-    0 16px 56px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-  position: relative;
-  overflow: hidden;             /* cover ikut border-radius card */
-  display: flex;
-  flex-direction: column;
-  z-index: 1;
+  max-width: 420px;
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
-/* Area form di bawah cover — punya padding sendiri */
-.ls-body {
-  padding: 22px 24px 26px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* ── Logo ────────────────────────────────────────────────────── */
-.ls-logo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 28px;
-}
-
-.ls-subtitle {
-  margin-top: 9px;
-  font-size: 0.68rem;
-  color: #2C3D5C;
+/* Heading di atas form */
+.lf-heading {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
   letter-spacing: 0.04em;
+  color: #fff;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.lf-sub {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.38);
+  margin-bottom: 22px;
 }
 
 /* ── Error ───────────────────────────────────────────────────── */
@@ -182,12 +191,12 @@ html, body {
 
 .form-group label {
   display: block;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: #3D4F6B;
-  margin-bottom: 7px;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.38);
+  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ── Input ───────────────────────────────────────────────────── */
@@ -197,10 +206,10 @@ html, body {
 
 .input-icon {
   position: absolute;
-  left: 13px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #252F45;
+  color: rgba(255,255,255,0.2);
   display: flex;
   pointer-events: none;
   transition: color 0.15s;
@@ -211,25 +220,28 @@ html, body {
 
 .form-group input {
   width: 100%;
-  padding: 11px 14px;
-  background: #070A18;
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 9px;
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
   color: var(--text);
   font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.input-icon-wrap input { padding-left: 38px; }
-.form-group input::placeholder { color: rgba(100,115,145,0.4); }
+.input-icon-wrap input { padding-left: 40px; }
+.form-group input::placeholder { color: rgba(255,255,255,0.2); }
 .form-group input:focus {
-  border-color: rgba(79,110,247,0.38);
-  box-shadow: 0 0 0 3px rgba(79,110,247,0.07);
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(79,110,247,0.5);
+  box-shadow: 0 0 0 3px rgba(79,110,247,0.1);
 }
 .form-group input.input-error {
-  border-color: rgba(239,68,68,0.45);
-  box-shadow: 0 0 0 3px rgba(239,68,68,0.07);
+  border-color: rgba(239,68,68,0.5);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
 }
 
 /* ── Admin badge ─────────────────────────────────────────────── */
@@ -248,16 +260,18 @@ html, body {
 
 /* ── Consent ─────────────────────────────────────────────────── */
 .consent-box {
-  margin-bottom: 18px;
-  padding: 11px 12px;
-  border-radius: 9px;
-  border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
   transition: border-color 0.2s, background 0.2s;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 .consent-box.consent-checked {
-  border-color: rgba(79,110,247,0.2);
-  background: rgba(79,110,247,0.04);
+  border-color: rgba(79,110,247,0.3);
+  background: rgba(79,110,247,0.08);
 }
 .consent-check {
   display: flex;
@@ -292,38 +306,40 @@ html, body {
 }
 .consent-text {
   font-size: 0.77rem;
-  color: #3D4F6B;
+  color: rgba(255,255,255,0.45);
   line-height: 1.55;
 }
-.consent-text strong { color: #9BAABF; font-weight: 500; }
+.consent-text strong { color: rgba(255,255,255,0.75); font-weight: 600; }
 
 /* ── Login button ────────────────────────────────────────────── */
 .btn-login-main {
   width: 100%;
-  padding: 13px 20px;
+  padding: 14px 20px;
   background: var(--accent);
   border: none;
-  border-radius: 9px;
+  border-radius: 10px;
   color: white;
   font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
   margin-bottom: 10px;
+  box-shadow: 0 4px 24px rgba(79,110,247,0.25);
 }
 .btn-login-main:hover:not(:disabled) {
   background: var(--accent2);
-  box-shadow: 0 6px 20px rgba(79,110,247,0.3);
+  box-shadow: 0 8px 28px rgba(79,110,247,0.4);
   transform: translateY(-1px);
 }
 .btn-login-main:active:not(:disabled) { transform: scale(0.98); }
 .btn-login-main:disabled {
-  background: rgba(255,255,255,0.04);
-  color: #252F45;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.2);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -1779,12 +1795,18 @@ html, body {
   :root { --sidebar-w: 0px; }
 
   /* Login — mobile */
-  .login-simple-card {
-    padding: 28px 20px 22px;
+  .login-brand-area {
+    padding: 36px 20px 0;
   }
-  .ls-card-outer {
-    width: calc(100% - 32px);
-    max-width: 100%;
+  .lb-logo {
+    height: 38px;
+  }
+  .login-form-area {
+    padding: 0 20px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  .lf-heading {
+    font-size: 1.7rem;
   }
 
   /* Watch screen */
