@@ -58,7 +58,8 @@ html, body {
 #screen-login {
   overflow: hidden;
   background: #05080f;
-  position: relative;
+  /* position: fixed diwarisi dari .screen — JANGAN override ke relative,
+     karena semua child adalah absolute → layar collapse 0 height → blank */
 }
 
 /* ── Background slideshow — full screen ──────────────────────── */
