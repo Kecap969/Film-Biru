@@ -62,41 +62,40 @@ html, body {
 
 .login-simple-bg { display: none; }
 
-/* ── Background — di dalam card, seperti sampul ─────────────── */
+/* ── Cover photo — blok di ATAS card, seperti cover FB ──────── */
 .card-cover {
-  position: absolute;
-  inset: 0;
+  position: relative;           /* ambil ruang, tidak overlap form */
+  width: 100%;
+  height: 200px;
+  border-radius: 16px 16px 0 0;
   overflow: hidden;
-  border-radius: 16px;
-  background: #070810;
-  z-index: 0;
+  background: #0d1020;
+  flex-shrink: 0;
 }
 
 .bg-slide {
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center top;
+  background-position: center center;
   opacity: 0;
   transition: opacity 1.8s ease-in-out;
   will-change: opacity;
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
 .bg-slide.active { opacity: 1; }
 
-/* Overlay gradient — atas terang, bawah gelap agar form terbaca */
+/* Overlay — fade tipis di bawah cover supaya nyambung ke card */
 .card-cover-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(4, 6, 20, 0.15) 0%,
-      rgba(4, 6, 20, 0.30) 40%,
-      rgba(4, 6, 20, 0.82) 70%,
-      rgba(4, 6, 20, 0.96) 100%
-    );
+  background: linear-gradient(
+    to bottom,
+    rgba(4, 6, 20, 0.05) 0%,
+    rgba(4, 6, 20, 0.10) 60%,
+    rgba(4, 6, 20, 0.55) 100%
+  );
   pointer-events: none;
 }
 
@@ -120,25 +119,29 @@ html, body {
   align-self: center;
 }
 
-/* ── Card — sampul foto di dalam card ───────────────────────── */
+/* ── Card — cover di atas, form di bawah ─────────────────────── */
 .login-simple-card {
   width: 100%;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.13);
+  background: rgba(8, 11, 28, 0.97);
+  border: 1px solid rgba(255,255,255,0.10);
   border-radius: 16px;
-  padding: 32px 24px 26px;
+  padding: 0;                   /* padding dihandle ls-body */
   box-shadow:
-    0 12px 48px rgba(0,0,0,0.6),
-    0 2px 0 rgba(255,255,255,0.04) inset;
+    0 16px 56px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.05);
   position: relative;
-  overflow: hidden;    /* clip gambar ikut border-radius */
+  overflow: hidden;             /* cover ikut border-radius card */
+  display: flex;
+  flex-direction: column;
   z-index: 1;
 }
 
-/* Semua konten card di atas layer background */
-.login-simple-card > *:not(.card-cover) {
-  position: relative;
-  z-index: 2;
+/* Area form di bawah cover — punya padding sendiri */
+.ls-body {
+  padding: 22px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 /* ── Logo ────────────────────────────────────────────────────── */
