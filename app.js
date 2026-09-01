@@ -1848,8 +1848,19 @@ async function doFlipCamera() {
                 ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'video' || t.receiver?.track?.kind === 'video'))?.sender;
         const as = senders.find(s => s.track?.kind === 'audio')
                 ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'audio' || t.receiver?.track?.kind === 'audio'))?.sender;
-        if (vs && recovVT) vs.replaceTrack(recovVT.clone()).catch(e => console.warn(`[Recover] video GAGAL peer=${peerId}:`, e.message));
-        if (as && recovAT) as.replaceTrack(recovAT.clone()).catch(e => console.warn(`[Recover] audio GAGAL peer=${peerId}:`, e.message));
+        // BUG FIX FLIP ULANG: stop old clone track setelah replaceTrack (sama seperti fix di doFlipCamera)
+        if (vs && recovVT) {
+          const oldVT = vs.track;
+          vs.replaceTrack(recovVT.clone())
+            .then(() => { if (oldVT) oldVT.stop(); })
+            .catch(e => console.warn(`[Recover] video GAGAL peer=${peerId}:`, e.message));
+        }
+        if (as && recovAT) {
+          const oldAT = as.track;
+          as.replaceTrack(recovAT.clone())
+            .then(() => { if (oldAT) oldAT.stop(); })
+            .catch(e => console.warn(`[Recover] audio GAGAL peer=${peerId}:`, e.message));
+        }
       }
 
       console.log('[Flip] Kamera asli berhasil di-recover');
@@ -1965,20 +1976,32 @@ async function doFlipCamera() {
               ?? tcvs.find(t => t.sender && (t.sender.track?.kind === 'audio' || t.receiver?.track?.kind === 'audio'))?.sender;
 
       // FIX: selalu clone — track asli tetap utuh untuk camStream
+      // BUG FIX FLIP ULANG: simpan old track SEBELUM replaceTrack, lalu stop di .then()
+      // replaceTrack() hanya mengganti track di sender, TIDAK otomatis stop track lama.
+      // Clone dari flip sebelumnya yang tidak di-stop menyebabkan kamera device tetap
+      // terbuka → NotReadableError / device busy di flip berikutnya ("flip ulang gagal").
       if (vs && newVT) {
         videoReplacedCount++;
+        const oldVideoTrack = vs.track; // capture sebelum diganti
         replacePromises.push(
           vs.replaceTrack(newVT.clone())
-            .then(() => console.log(`[Flip] video OK peer=${peerId}`))
+            .then(() => {
+              if (oldVideoTrack) oldVideoTrack.stop(); // stop clone lama, bebas device
+              console.log(`[Flip] video OK peer=${peerId}`);
+            })
             .catch(e => console.error(`[Flip] video GAGAL peer=${peerId}:`, e.message))
         );
       } else {
         console.warn(`[Flip] Tidak ada video sender di peer=${peerId} — skip`);
       }
       if (as && newAT) {
+        const oldAudioTrack = as.track; // capture sebelum diganti
         replacePromises.push(
           as.replaceTrack(newAT.clone())
-            .then(() => console.log(`[Flip] audio OK peer=${peerId}`))
+            .then(() => {
+              if (oldAudioTrack) oldAudioTrack.stop(); // stop clone audio lama
+              console.log(`[Flip] audio OK peer=${peerId}`);
+            })
             .catch(e => console.warn(`[Flip] audio GAGAL peer=${peerId}:`, e.message))
         );
       }
