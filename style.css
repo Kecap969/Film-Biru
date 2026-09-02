@@ -96,12 +96,12 @@ html, body {
   background:
     linear-gradient(
       to bottom,
-      rgba(5, 8, 20, 0.03)  0%,
+      rgba(5, 8, 20, 0.05)  0%,   /* hampir transparan, gambar terlihat jelas */
       rgba(5, 8, 20, 0.08) 25%,
-      rgba(5, 8, 20, 0.50) 45%,
-      rgba(5, 8, 20, 0.78) 55%,
-      rgba(5, 8, 20, 0.92) 66%,
-      rgba(5, 8, 20, 1.00) 78%
+      rgba(5, 8, 20, 0.45) 45%,   /* transisi mulai di bawah tepi gambar */
+      rgba(5, 8, 20, 0.82) 58%,   /* area brand logo */
+      rgba(5, 8, 20, 0.96) 70%,   /* area form */
+      rgba(5, 8, 20, 1.00) 82%
     );
   pointer-events: none;
 }
@@ -121,108 +121,57 @@ html, body {
 /* ── Brand area — langsung di atas form ──────────────────────── */
 .login-brand-area {
   display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  padding: 0 28px 20px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 28px 18px;  /* hapus top padding, beri jarak bawah ke form */
   flex-shrink: 0;
 }
 
 .lb-logo {
-  height: 110px;
+  height: 80px;           /* diperbesar dari 44px */
   width: auto;
-  max-width: 240px;
+  max-width: 200px;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 0 28px rgba(79,110,247,0.4)) drop-shadow(0 6px 24px rgba(0,0,0,0.9));
+  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.8));
 }
 
-/* ── 18+ Badge — prominent rating badge ──────────────────────── */
 .lb-badge {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.9rem;
-  letter-spacing: 0.08em;
+  font-size: 1.15rem;     /* diperbesar dari 0.65rem */
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 5px 12px;
+  align-self: center;
   line-height: 1;
-  color: #fff;
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%);
-  border: 2.5px solid rgba(255,80,80,0.55);
-  border-radius: 10px;
-  padding: 6px 14px 8px;
-  align-self: flex-end;
-  margin-bottom: 4px;
-  box-shadow:
-    0 0 18px rgba(220,38,38,0.5),
-    0 4px 12px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(255,255,255,0.15);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
-  position: relative;
-  overflow: hidden;
-}
-.lb-badge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%);
-  pointer-events: none;
 }
 
-/* ── Form area — card glass di bawah brand ───────────────────── */
+/* ── Form area — langsung di bawah brand ────────────────────── */
 .login-form-area {
-  padding: 24px 24px 32px;
-  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  padding: 0 24px 36px;
+  padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   width: 100%;
-  max-width: 440px;
-  margin: 0 auto 0;
+  max-width: 420px;
+  margin: 0 auto;
   flex-shrink: 0;
-}
-
-/* Glassmorphism card wrapper */
-.login-card {
-  background: linear-gradient(
-    160deg,
-    rgba(20, 28, 50, 0.85) 0%,
-    rgba(12, 18, 34, 0.92) 100%
-  );
-  border: 1px solid rgba(79,110,247,0.18);
-  border-top: 1px solid rgba(120,150,255,0.25);
-  border-radius: 20px;
-  padding: 26px 22px 26px;
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  backdrop-filter: blur(20px) saturate(1.4);
-  box-shadow:
-    0 0 0 1px rgba(79,110,247,0.06),
-    0 20px 60px rgba(0,0,0,0.7),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  position: relative;
-  overflow: hidden;
-}
-
-/* Subtle top glow accent inside card */
-.login-card::before {
-  content: '';
-  position: absolute;
-  top: -60px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-  height: 120px;
-  background: radial-gradient(ellipse, rgba(79,110,247,0.18) 0%, transparent 70%);
-  pointer-events: none;
 }
 
 /* Heading di atas form */
 .lf-heading {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.2rem;
-  letter-spacing: 0.05em;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
   color: #fff;
   margin-bottom: 4px;
   line-height: 1;
 }
 .lf-sub {
   font-size: 0.78rem;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.38);
   margin-bottom: 22px;
-  letter-spacing: 0.02em;
 }
 
 /* ── Error ───────────────────────────────────────────────────── */
@@ -248,11 +197,11 @@ html, body {
 
 .form-group label {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.42);
+  color: rgba(255,255,255,0.38);
   margin-bottom: 8px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -277,30 +226,28 @@ html, body {
 
 .form-group input {
   width: 100%;
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.05);
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text);
   font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   outline: none;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.input-icon-wrap input { padding-left: 42px; }
-.form-group input::placeholder { color: rgba(255,255,255,0.18); font-size: 0.88rem; }
+.input-icon-wrap input { padding-left: 40px; }
+.form-group input::placeholder { color: rgba(255,255,255,0.2); }
 .form-group input:focus {
-  background: rgba(79,110,247,0.07);
-  border-color: rgba(79,110,247,0.55);
-  box-shadow:
-    0 0 0 3px rgba(79,110,247,0.12),
-    0 2px 8px rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(79,110,247,0.5);
+  box-shadow: 0 0 0 3px rgba(79,110,247,0.1);
 }
 .form-group input.input-error {
-  border-color: rgba(239,68,68,0.55);
-  box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.5);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
 }
 
 /* ── Admin badge ─────────────────────────────────────────────── */
@@ -320,18 +267,17 @@ html, body {
 /* ── Consent ─────────────────────────────────────────────────── */
 .consent-box {
   margin-bottom: 20px;
-  padding: 13px 15px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.09);
-  background: rgba(255,255,255,0.03);
-  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  transition: border-color 0.2s, background 0.2s;
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 .consent-box.consent-checked {
-  border-color: rgba(79,110,247,0.4);
-  background: rgba(79,110,247,0.07);
-  box-shadow: 0 0 0 1px rgba(79,110,247,0.08), 0 0 16px rgba(79,110,247,0.08);
+  border-color: rgba(79,110,247,0.3);
+  background: rgba(79,110,247,0.08);
 }
 .consent-check {
   display: flex;
@@ -374,44 +320,27 @@ html, body {
 /* ── Login button ────────────────────────────────────────────── */
 .btn-login-main {
   width: 100%;
-  padding: 15px 20px;
-  background: linear-gradient(135deg, #4F6EF7 0%, #3A58E8 60%, #5B3CF5 100%);
+  padding: 14px 20px;
+  background: var(--accent);
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: white;
   font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: box-shadow 0.2s, transform 0.1s, opacity 0.2s;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
   margin-bottom: 10px;
-  position: relative;
-  overflow: hidden;
-}
-.btn-login-main::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -60%;
-  width: 40%;
-  height: 200%;
-  background: rgba(255,255,255,0.12);
-  transform: skewX(-20deg);
-  transition: left 0.5s ease;
-  pointer-events: none;
-}
-.btn-login-main:not(:disabled):hover::after {
-  left: 130%;
-}
-  box-shadow: 0 4px 24px rgba(79,110,247,0.3), 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 24px rgba(79,110,247,0.25);
 }
 .btn-login-main:hover:not(:disabled) {
-  box-shadow: 0 10px 32px rgba(79,110,247,0.5), 0 4px 12px rgba(0,0,0,0.5);
-  transform: translateY(-2px);
+  background: var(--accent2);
+  box-shadow: 0 8px 28px rgba(79,110,247,0.4);
+  transform: translateY(-1px);
 }
 .btn-login-main:active:not(:disabled) { transform: scale(0.98); }
 .btn-login-main:disabled {
@@ -429,10 +358,9 @@ html, body {
 .login-version {
   text-align: center;
   font-size: 0.6rem;
-  color: rgba(255,255,255,0.12);
-  letter-spacing: 0.12em;
-  margin-top: 10px;
-  text-transform: uppercase;
+  color: rgba(255,255,255,0.07);
+  letter-spacing: 0.08em;
+  margin-top: 8px;
 }
 
 /* ── Animasi ─────────────────────────────────────────────────── */
@@ -1874,26 +1802,22 @@ html, body {
 
   /* Login — mobile */
   .login-brand-area {
-    padding: 0 16px 16px;
-    gap: 14px;
+    padding: 0 20px 14px;
+    gap: 12px;
   }
   .lb-logo {
-    height: 80px;
+    height: 64px;
   }
   .lb-badge {
-    font-size: 1.55rem;
-    padding: 5px 11px 7px;
+    font-size: 1rem;
+    padding: 4px 10px;
   }
   .login-form-area {
-    padding: 18px 14px 22px;
-    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
-  }
-  .login-card {
-    padding: 20px 16px 22px;
-    border-radius: 16px;
+    padding: 0 20px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
   .lf-heading {
-    font-size: 1.85rem;
+    font-size: 1.7rem;
   }
 
   /* Watch screen */
