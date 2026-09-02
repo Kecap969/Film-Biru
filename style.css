@@ -116,31 +116,31 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  padding: 0 28px 20px;
+  gap: 18px;
+  padding: 0 28px 28px;
   flex-shrink: 0;
   width: 100%;
   max-width: 420px;
 }
 
 .lb-logo {
-  height: 80px;           /* diperbesar dari 44px */
+  height: 120px;
   width: auto;
-  max-width: 200px;
+  max-width: 280px;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.8));
+  filter: drop-shadow(0 6px 28px rgba(0,0,0,0.9));
 }
 
 .lb-badge {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.15rem;     /* diperbesar dari 0.65rem */
+  font-size: 1.7rem;
   letter-spacing: 0.06em;
-  color: rgba(255,255,255,0.75);
-  background: rgba(255,255,255,0.08);
-  border: 1.5px solid rgba(255,255,255,0.2);
-  border-radius: 8px;
-  padding: 5px 12px;
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.09);
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 8px 16px;
   align-self: center;
   line-height: 1;
 }
@@ -155,46 +155,21 @@ html, body {
   flex-shrink: 0;
 }
 
-/* ── Login card — glassmorphism elegan, tengah ───────────────── */
+/* ── Login form — tanpa card, transparan ─────────────────────── */
 .login-form-area.login-card {
   width: 100%;
   max-width: 420px;
-  padding: 32px 28px 36px;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.045) 0%,
-    rgba(10, 15, 42, 0.72)     100%
-  );
-  backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
-  -webkit-backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 24px 64px rgba(0, 0, 0, 0.55),
-    0  0  100px rgba(79, 110, 247, 0.12);
+  padding: 0 28px 36px;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   position: relative;
   z-index: 2;
 }
-
-/* Shimmer line di atas card */
-.login-form-area.login-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 12%; right: 12%;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(130, 160, 255, 0.50) 35%,
-    rgba(180, 140, 255, 0.65) 50%,
-    rgba(130, 160, 255, 0.50) 65%,
-    transparent 100%
-  );
-  border-radius: 1px;
-  pointer-events: none;
-}
+.login-form-area.login-card::before { display: none; }
 
 /* Heading di atas form */
 .lf-heading {
@@ -1859,13 +1834,15 @@ html, body {
     padding: 0 20px 28px;
   }
   .login-form-area.login-card {
-    padding: 26px 20px 30px;
-    border-radius: 24px;
+    padding: 0 20px 28px;
     max-width: 100%;
   }
   .login-brand-area {
     max-width: 100%;
+    padding: 0 20px 22px;
   }
+  .lb-logo { height: 90px; }
+  .lb-badge { font-size: 1.4rem; padding: 6px 13px; }
   .lf-heading {
     font-size: 1.7rem;
   }
