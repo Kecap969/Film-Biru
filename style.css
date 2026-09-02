@@ -57,104 +57,70 @@ html, body {
 /* ── Screen ─────────────────────────────────────────────────── */
 #screen-login {
   overflow: hidden;
-  background: #05080f;
-  /* position: fixed diwarisi dari .screen — JANGAN override ke relative,
-     karena semua child adalah absolute → layar collapse 0 height → blank */
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(79,110,247,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 10%,  rgba(139,92,246,0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 20%,  rgba(59,100,230,0.08) 0%, transparent 45%),
+    #05080f;
 }
 
-/* Ambient glow blob melayang di belakang form */
+/* Ambient glow blob — tengah layar, di balik form */
 #screen-login::after {
   content: '';
   position: absolute;
-  bottom: -80px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 520px;
-  height: 380px;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
   background: radial-gradient(
     ellipse at center,
-    rgba(79, 110, 247, 0.22) 0%,
-    rgba(139, 92, 246, 0.10) 42%,
+    rgba(79, 110, 247, 0.16) 0%,
+    rgba(139, 92, 246, 0.08) 40%,
     transparent 70%
   );
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
   animation: glowPulse 7s ease-in-out infinite;
 }
 
 @keyframes glowPulse {
-  0%, 100% { opacity: 0.75; transform: translateX(-50%) scale(1); }
-  50%       { opacity: 1.00; transform: translateX(-50%) scale(1.10); }
+  0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1); }
+  50%       { opacity: 1.00; transform: translate(-50%, -50%) scale(1.12); }
 }
 
-/* ── Background slideshow — full screen ──────────────────────── */
-.login-bg-full {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 0 !important;
-  background: #05080f;
-}
+/* ── Background slideshow — disembunyikan ────────────────────── */
+.login-bg-full,
+.bg-slide { display: none !important; }
 
-.bg-slide {
-  position: absolute;
-  inset: 0;
-  /* Gambar 16:9: fit lebar penuh, tinggi proporsional — tidak ada crop */
-  background-size: 100% auto;
-  background-position: center top;
-  background-repeat: no-repeat;
-  background-color: #05080f;
-  opacity: 0;
-  transition: opacity 1.8s ease-in-out;
-  will-change: opacity;
-  /* scale dihapus — zoom akan crop gambar lagi */
-}
-.bg-slide.active { opacity: 1; }
+/* Overlay — tidak dipakai lagi (tidak ada gambar) */
+.card-cover-overlay { display: none; }
 
-/* Overlay gradient — sinematik dengan tint biru ambient */
-.card-cover-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background:
-    /* Vignette sudut kiri & kanan atas */
-    radial-gradient(ellipse at top left,  rgba(5,10,40,0.45) 0%, transparent 55%),
-    radial-gradient(ellipse at top right, rgba(5,10,40,0.45) 0%, transparent 55%),
-    /* Ambient glow biru di area transisi */
-    radial-gradient(ellipse at 50% 60%, rgba(59,100,230,0.13) 0%, transparent 50%),
-    /* Fade utama dari transparan → solid */
-    linear-gradient(
-      to bottom,
-      rgba(5, 8, 20, 0.06)  0%,
-      rgba(5, 8, 20, 0.08) 20%,
-      rgba(5, 8, 20, 0.38) 40%,
-      rgba(5, 8, 20, 0.76) 56%,
-      rgba(5, 8, 20, 0.96) 70%,
-      rgba(5, 8, 20, 1.00) 82%
-    );
-  pointer-events: none;
-}
-
-/* ── Content overlay — brand + form nempel bawah ───────────── */
+/* ── Content overlay — form ditengah ───────────────────────── */
 .login-content {
   position: absolute;
   inset: 0;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;  /* brand & form di bawah, dekat gambar */
+  justify-content: center;
+  align-items: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 24px 16px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── Brand area — langsung di atas form ──────────────────────── */
+/* ── Brand area — di atas form, terpusat ─────────────────────── */
 .login-brand-area {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
-  padding: 0 28px 18px;  /* hapus top padding, beri jarak bawah ke form */
+  padding: 0 28px 20px;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 420px;
 }
 
 .lb-logo {
@@ -189,42 +155,41 @@ html, body {
   flex-shrink: 0;
 }
 
-/* ── Login card — glassmorphism elegan ───────────────────────── */
+/* ── Login card — glassmorphism elegan, tengah ───────────────── */
 .login-form-area.login-card {
-  max-width: 100%;
-  padding: 30px 26px 40px;
-  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px 36px;
   background: linear-gradient(
     160deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(10, 15, 38, 0.68)    100%
+    rgba(255, 255, 255, 0.045) 0%,
+    rgba(10, 15, 42, 0.72)     100%
   );
   backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
   -webkit-backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
-  border-radius: 28px 28px 0 0;
-  border-top:   1px solid rgba(255, 255, 255, 0.13);
-  border-left:  1px solid rgba(255, 255, 255, 0.07);
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),    /* top inner highlight */
-    0 -30px 70px rgba(0,   0,   0,   0.40),      /* shadow ke atas */
-    0   0  90px rgba(79, 110, 247, 0.11);        /* halo biru tipis */
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0  0  100px rgba(79, 110, 247, 0.12);
   position: relative;
   z-index: 2;
 }
 
-/* Shimmer line tipis di bagian atas card */
+/* Shimmer line di atas card */
 .login-form-area.login-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 10%; right: 10%;
+  top: 0; left: 12%; right: 12%;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(130, 160, 255, 0.45) 35%,
-    rgba(180, 140, 255, 0.60) 50%,
-    rgba(130, 160, 255, 0.45) 65%,
+    rgba(130, 160, 255, 0.50) 35%,
+    rgba(180, 140, 255, 0.65) 50%,
+    rgba(130, 160, 255, 0.50) 65%,
     transparent 100%
   );
   border-radius: 1px;
@@ -1892,12 +1857,14 @@ html, body {
   }
   .login-form-area {
     padding: 0 20px 28px;
-    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
   .login-form-area.login-card {
-    padding: 24px 20px 28px;
-    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-    border-radius: 24px 24px 0 0;
+    padding: 26px 20px 30px;
+    border-radius: 24px;
+    max-width: 100%;
+  }
+  .login-brand-area {
+    max-width: 100%;
   }
   .lf-heading {
     font-size: 1.7rem;
