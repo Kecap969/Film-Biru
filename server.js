@@ -386,6 +386,19 @@ io.on('connection', (socket) => {
         console.log(`[SIO] Grace period dibatalkan — viewer reconnect: ${user.name} (${sessionId})`);
         addServerLog(user.name, 'terhubung kembali setelah refresh', '#4ADE80', 'connect');
 
+        // Notif Telegram: pengguna terhubung kembali
+        const _rUa = socket.handshake.headers['user-agent'] || '';
+        const { browser: _rBrowser, os: _rOs, device: _rDevice } = parseBrowser(_rUa);
+        const _rWaktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+        sendTelegramNotif(
+          `🔄 <b>Pengguna Terhubung Kembali</b>\n\n` +
+          `👤 <b>Nama</b>      : ${user.name || 'Pengguna'}\n` +
+          `🕐 <b>Waktu</b>     : ${_rWaktu} WITA\n` +
+          `${_rDevice} <b>Perangkat</b>: ${_rOs}\n` +
+          `🌐 <b>Browser</b>  : ${_rBrowser}\n\n` +
+          `— <i>Layar Biru</i>`
+        ).catch(e => console.error('[TELEGRAM] Viewer reconnect notif gagal:', e.message));
+
         // FIX: Kirim viewer-renegotiate ke admin agar WebRTC dinegosiasi ulang.
         // Sebelumnya: langsung return → admin TIDAK tahu bahwa socket berubah (terutama
         // saat disconnect reason=transport close). RTCPeerConnection lama sudah rusak
@@ -532,6 +545,19 @@ io.on('connection', (socket) => {
 
       if (isReconnect) {
         addServerLog('Admin', 'terhubung kembali ke dashboard streaming', '#4ADE80', 'connect');
+
+        // Notif Telegram: admin terhubung kembali
+        const _aUa = socket.handshake.headers['user-agent'] || '';
+        const { browser: _aBrowser, os: _aOs, device: _aDevice } = parseBrowser(_aUa);
+        const _aWaktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+        sendTelegramNotif(
+          `🔵 <b>Admin Terhubung Kembali</b>\n\n` +
+          `👤 <b>Nama</b>      : ${user.name || 'Admin'}\n` +
+          `🕐 <b>Waktu</b>     : ${_aWaktu} WITA\n` +
+          `${_aDevice} <b>Perangkat</b>: ${_aOs}\n` +
+          `🌐 <b>Browser</b>  : ${_aBrowser}\n\n` +
+          `— <i>Layar Biru Dashboard</i>`
+        ).catch(e => console.error('[TELEGRAM] Admin reconnect notif gagal:', e.message));
       } else {
         addServerLog('Admin', 'terhubung ke dashboard streaming', '#4ADE80', 'connect');
       }
