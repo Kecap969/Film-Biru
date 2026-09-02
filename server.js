@@ -653,6 +653,19 @@ app.post('/api/login', async (req, res) => {
     // Sebelumnya env var ADMIN_NAME dan initial 'AL' diabaikan → avatar/nama selalu salah
     const token = jwt.sign({ name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
     addServerLog('Admin', 'login sebagai admin', '#5B8CFF', 'login');
+
+    // Notif Telegram: admin masuk
+    const { browser: aBrowser, os: aOs, device: aDevice } = parseBrowser(ua);
+    const aWaktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+    sendTelegramNotif(
+      `🔵 <b>Admin Masuk</b>\n\n` +
+      `👤 <b>Nama</b>      : ${ADMIN_USER.name}\n` +
+      `🕐 <b>Waktu</b>     : ${aWaktu} WITA\n` +
+      `${aDevice} <b>Perangkat</b>: ${aOs}\n` +
+      `🌐 <b>Browser</b>  : ${aBrowser}\n\n` +
+      `— <i>Layar Biru Dashboard</i>`
+    ).catch(e => console.error('[TELEGRAM] Admin login notif gagal:', e.message));
+
     return res.json({ success: true, token, user: { name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' } });
   }
 
