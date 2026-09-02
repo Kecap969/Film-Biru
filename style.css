@@ -62,6 +62,31 @@ html, body {
      karena semua child adalah absolute → layar collapse 0 height → blank */
 }
 
+/* Ambient glow blob melayang di belakang form */
+#screen-login::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 520px;
+  height: 380px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(79, 110, 247, 0.22) 0%,
+    rgba(139, 92, 246, 0.10) 42%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 1;
+  animation: glowPulse 7s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.75; transform: translateX(-50%) scale(1); }
+  50%       { opacity: 1.00; transform: translateX(-50%) scale(1.10); }
+}
+
 /* ── Background slideshow — full screen ──────────────────────── */
 .login-bg-full {
   position: absolute !important;
@@ -87,20 +112,25 @@ html, body {
 }
 .bg-slide.active { opacity: 1; }
 
-/* Overlay gradient — gambar 16:9 tampil penuh di atas (~40% layar),
-   konten (brand+form) nempel di bawah → gelap mulai 45% ke bawah */
+/* Overlay gradient — sinematik dengan tint biru ambient */
 .card-cover-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
   background:
+    /* Vignette sudut kiri & kanan atas */
+    radial-gradient(ellipse at top left,  rgba(5,10,40,0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at top right, rgba(5,10,40,0.45) 0%, transparent 55%),
+    /* Ambient glow biru di area transisi */
+    radial-gradient(ellipse at 50% 60%, rgba(59,100,230,0.13) 0%, transparent 50%),
+    /* Fade utama dari transparan → solid */
     linear-gradient(
       to bottom,
-      rgba(5, 8, 20, 0.05)  0%,   /* hampir transparan, gambar terlihat jelas */
-      rgba(5, 8, 20, 0.08) 25%,
-      rgba(5, 8, 20, 0.45) 45%,   /* transisi mulai di bawah tepi gambar */
-      rgba(5, 8, 20, 0.82) 58%,   /* area brand logo */
-      rgba(5, 8, 20, 0.96) 70%,   /* area form */
+      rgba(5, 8, 20, 0.06)  0%,
+      rgba(5, 8, 20, 0.08) 20%,
+      rgba(5, 8, 20, 0.38) 40%,
+      rgba(5, 8, 20, 0.76) 56%,
+      rgba(5, 8, 20, 0.96) 70%,
       rgba(5, 8, 20, 1.00) 82%
     );
   pointer-events: none;
@@ -157,6 +187,48 @@ html, body {
   max-width: 420px;
   margin: 0 auto;
   flex-shrink: 0;
+}
+
+/* ── Login card — glassmorphism elegan ───────────────────────── */
+.login-form-area.login-card {
+  max-width: 100%;
+  padding: 30px 26px 40px;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(10, 15, 38, 0.68)    100%
+  );
+  backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4) brightness(1.05);
+  border-radius: 28px 28px 0 0;
+  border-top:   1px solid rgba(255, 255, 255, 0.13);
+  border-left:  1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),    /* top inner highlight */
+    0 -30px 70px rgba(0,   0,   0,   0.40),      /* shadow ke atas */
+    0   0  90px rgba(79, 110, 247, 0.11);        /* halo biru tipis */
+  position: relative;
+  z-index: 2;
+}
+
+/* Shimmer line tipis di bagian atas card */
+.login-form-area.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(130, 160, 255, 0.45) 35%,
+    rgba(180, 140, 255, 0.60) 50%,
+    rgba(130, 160, 255, 0.45) 65%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  pointer-events: none;
 }
 
 /* Heading di atas form */
@@ -242,8 +314,10 @@ html, body {
 .form-group input::placeholder { color: rgba(255,255,255,0.2); }
 .form-group input:focus {
   background: rgba(255,255,255,0.09);
-  border-color: rgba(79,110,247,0.5);
-  box-shadow: 0 0 0 3px rgba(79,110,247,0.1);
+  border-color: rgba(120, 140, 255, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(79, 110, 247, 0.12),
+    0 0 18px rgba(79, 110, 247, 0.08);
 }
 .form-group input.input-error {
   border-color: rgba(239,68,68,0.5);
@@ -321,9 +395,9 @@ html, body {
 .btn-login-main {
   width: 100%;
   padding: 14px 20px;
-  background: var(--accent);
+  background: linear-gradient(135deg, #4F6EF7 0%, #7C5CFC 100%);
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   color: white;
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
@@ -333,19 +407,23 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+  transition: background 0.25s, box-shadow 0.25s, transform 0.12s;
   margin-bottom: 10px;
-  box-shadow: 0 4px 24px rgba(79,110,247,0.25);
+  box-shadow:
+    0 4px 24px rgba(79, 110, 247, 0.30),
+    inset 0 1px 0 rgba(255,255,255,0.14);
 }
 .btn-login-main:hover:not(:disabled) {
-  background: var(--accent2);
-  box-shadow: 0 8px 28px rgba(79,110,247,0.4);
+  background: linear-gradient(135deg, #5C7BFF 0%, #8B6DFF 100%);
+  box-shadow:
+    0 8px 32px rgba(79, 110, 247, 0.50),
+    inset 0 1px 0 rgba(255,255,255,0.16);
   transform: translateY(-1px);
 }
 .btn-login-main:active:not(:disabled) { transform: scale(0.98); }
 .btn-login-main:disabled {
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.18);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -1815,6 +1893,11 @@ html, body {
   .login-form-area {
     padding: 0 20px 28px;
     padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  .login-form-area.login-card {
+    padding: 24px 20px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    border-radius: 24px 24px 0 0;
   }
   .lf-heading {
     font-size: 1.7rem;
