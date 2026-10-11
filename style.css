@@ -103,9 +103,10 @@ html, body {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   align-items: center;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: 24px 16px;
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
@@ -148,7 +149,6 @@ html, body {
 /* ── Form area — langsung di bawah brand ────────────────────── */
 .login-form-area {
   padding: 0 24px 36px;
-  padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
@@ -181,8 +181,8 @@ html, body {
   line-height: 1;
 }
 .lf-sub {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.38);
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.62);
   margin-bottom: 22px;
 }
 
@@ -211,7 +211,7 @@ html, body {
   display: block;
   font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.38);
+  color: rgba(255,255,255,0.62);
   margin-bottom: 8px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -227,7 +227,7 @@ html, body {
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.45);
   display: flex;
   pointer-events: none;
   transition: color 0.15s;
@@ -251,7 +251,7 @@ html, body {
   backdrop-filter: blur(6px);
 }
 .input-icon-wrap input { padding-left: 40px; }
-.form-group input::placeholder { color: rgba(255,255,255,0.2); }
+.form-group input::placeholder { color: rgba(255,255,255,0.38); }
 .form-group input:focus {
   background: rgba(255,255,255,0.09);
   border-color: rgba(120, 140, 255, 0.55);
@@ -299,12 +299,26 @@ html, body {
   gap: 10px;
   cursor: pointer;
 }
-.consent-check input[type="checkbox"] { display: none; }
+.consent-check input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.consent-check input:focus-visible + .checkmark {
+  outline: 2px solid #9DB0FF;
+  outline-offset: 2px;
+}
+.btn-login-main:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
 .checkmark {
   width: 17px;
   height: 17px;
   min-width: 17px;
-  border: 1.5px solid rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.4);
   border-radius: 5px;
   background: transparent;
   margin-top: 1px;
@@ -325,11 +339,11 @@ html, body {
   font-weight: 700;
 }
 .consent-text {
-  font-size: 0.77rem;
-  color: rgba(255,255,255,0.45);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
   line-height: 1.55;
 }
-.consent-text strong { color: rgba(255,255,255,0.75); font-weight: 600; }
+.consent-text strong { color: #fff; font-weight: 600; }
 
 /* ── Login button ────────────────────────────────────────────── */
 .btn-login-main {
@@ -362,23 +376,30 @@ html, body {
 }
 .btn-login-main:active:not(:disabled) { transform: scale(0.98); }
 .btn-login-main:disabled {
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.42);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
 }
 
 /* ── Hint (tersembunyi, tetap di DOM untuk JS) ───────────────── */
-.login-hint { display: none; }
+.login-hint {
+  display: block;
+  text-align: center;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  min-height: 1.4em;
+  color: rgba(255,255,255,0.6);
+  transition: opacity 0.2s;
+}
 
 /* ── Version footer ──────────────────────────────────────────── */
 .login-version {
   text-align: center;
-  font-size: 0.6rem;
-  color: rgba(255,255,255,0.07);
-  letter-spacing: 0.08em;
-  margin-top: 8px;
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.4);
+  margin-top: 12px;
 }
 
 /* ── Animasi ─────────────────────────────────────────────────── */
@@ -388,6 +409,13 @@ html, body {
   40%,80%  { transform: translateX(6px); }
 }
 .shake { animation: shake 0.4s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  #screen-login::after,
+  .shake,
+  .btn-login-main.loading #btn-text::after { animation: none; }
+  .btn-login-main { transition: none; }
+}
 
 .btn-login-main.loading #btn-text::after {
   content: '';
@@ -1819,17 +1847,6 @@ html, body {
   :root { --sidebar-w: 0px; }
 
   /* Login — mobile */
-  .login-brand-area {
-    padding: 0 20px 14px;
-    gap: 12px;
-  }
-  .lb-logo {
-    height: 64px;
-  }
-  .lb-badge {
-    font-size: 1rem;
-    padding: 4px 10px;
-  }
   .login-form-area {
     padding: 0 20px 28px;
   }
@@ -1846,6 +1863,8 @@ html, body {
   .lf-heading {
     font-size: 1.7rem;
   }
+  /* 16px mencegah iOS Safari zoom otomatis saat input difokus */
+  .form-group input { font-size: 16px; }
 
   /* Watch screen */
   #screen-watch { flex-direction: column; background: #0A0B0F; }
