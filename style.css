@@ -1537,12 +1537,17 @@ html, body {
 /* ── Layar < 1100px: log pindah ke bawah, seluruh konten scroll ─ */
 @media (max-width: 1100px) {
   .admin-content { display: flex; flex-direction: column; overflow-y: auto; }
+  .ac-header { flex: none; }
   .sessions-grid { overflow: visible; flex: none; }
+  /* Log mengisi sisa tinggi layar (tidak menyisakan ruang kosong di bawah);
+     kalau kartu banyak, panel tetap minimal 320px dan halaman bisa di-scroll */
   .log-panel {
-    flex: none;
-    height: 320px;
+    flex: 1 0 320px;
+    height: auto;
+    min-height: 320px;
     border-left: 0;
     border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -2007,7 +2012,7 @@ html, body {
   .sc-controls { gap: 4px; padding: 6px 8px; }
   .sc-btn { height: 30px; }
   .sc-btn.sc-icon-btn { width: 30px; font-size: 0.85rem; }
-  .log-panel { height: 260px; }
+  .log-panel { flex-basis: 260px; min-height: 260px; }
 
   /* Video Modal (expanded) — fullscreen di mobile */
   .video-modal {
