@@ -84,7 +84,11 @@ let currentDeviceIndex  = 0;
 let currentFacingMode   = 'environment';
 let isFlipping          = false;
 let hdSessions          = new Set(); // sessionId yang sedang mode HD
-let tiltSessions        = new Set(); // sessionId yang sedang diberi efek rotasi layar
+let tiltSessions        = new Map(); // sessionId → sudut (derajat) efek rotasi layar; tidak ada = Off
+const TILT_DIRS = [
+  { a: 0,   l: 'Jam 12'    }, { a: 45,  l: 'Jam 1.30'  }, { a: 90,  l: 'Jam 3'    }, { a: 135, l: 'Jam 4.30' },
+  { a: 180, l: 'Jam 6'     }, { a: 225, l: 'Jam 7.30'  }, { a: 270, l: 'Jam 9'    }, { a: 315, l: 'Jam 10.30' }
+];
 
 const viewerPeers     = new Map();
 const adminPeers      = new Map();
@@ -377,12 +381,8 @@ function renderAdminSessions(sessions) {
       if (d) d.textContent = s.film;
       if (t) t.textContent = formatDuration(s.duration);
       if (m) m.textContent = s.name;
-      const tb = existingCard.querySelector('.tilt-btn');
-      if (tb) {
-        if (s.tilt) tiltSessions.add(s.id); else tiltSessions.delete(s.id);
-        tb.classList.toggle('tilt-active', !!s.tilt);
-        if (!s.tilt) { delete tb.dataset.status; tb.title = 'Efek rotasi layar (ikut kemiringan HP)'; }
-      }
+      if (s.tilt) tiltSessions.set(s.id, s.tiltAngle || 0); else tiltSessions.delete(s.id);
+      updateTiltUI(s.id);
 
       // Jika peer punya stream tapi video masih blank (SSE update setelah ontrack fire)
       const pe  = adminPeers.get(s.id);
@@ -477,7 +477,6 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
-        <button class="sc-btn sc-icon-btn tilt-btn${tiltSessions.has(sessionId) ? ' tilt-active' : ''}" id="tilt-btn-${sessionId}" onclick="toggleTiltPrank('${sessionId}')" title="Efek rotasi layar (ikut kemiringan HP)">🌀</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
     `;
@@ -793,21 +792,6 @@ function connectSocket_Admin() {
 
   // BUG FIX #1: Listener flip-camera-accepted/rejected HARUS ada di admin socket
   // Sebelumnya tidak ada sama sekali — admin tidak pernah tahu hasil flip camera viewer
-  // Status efek rotasi dari viewer (tampil di tooltip tombol 🌀, bukan di sisi pengguna)
-  socket.on('tilt-prank-status', ({ sessionId, status }) => {
-    const labels = {
-      active:      'aktif — sensor berjalan',
-      pending:     'menunggu ketukan pengguna (iOS)',
-      unsupported: 'perangkat tidak mendukung sensor',
-      denied:      'izin sensor ditolak pengguna'
-    };
-    if (!labels[status]) return;
-    const btn = document.getElementById(`tilt-btn-${sessionId}`);
-    if (btn) { btn.dataset.status = status; btn.title = `Efek rotasi: ${labels[status]}`; }
-    const name = adminPeers.get(sessionId)?.user?.name || sessionId;
-    addAdminLog(name, `Efek rotasi: ${labels[status]}`, status === 'active' ? '#A78BFA' : '#F2B94B', 'info');
-  });
-
   socket.on('flip-camera-accepted', ({ sessionId, reason }) => {
     const peer = adminPeers.get(sessionId);
     const name = peer?.user?.name || sessionId;
@@ -1091,123 +1075,119 @@ function toggleHDRequest(sessionId) {
   }
 }
 
-// Admin: nyalakan/matikan efek rotasi layar di HP pengguna (viewer tidak diberi pemberitahuan apa pun)
-function toggleTiltPrank(sessionId) {
-  if (!sessionId || !socket) return;
-  const btn = document.getElementById(`tilt-btn-${sessionId}`);
-  const turnOn = !tiltSessions.has(sessionId);
-  socket.emit('set-tilt-prank', { sessionId, on: turnOn });
-  if (turnOn) tiltSessions.add(sessionId); else tiltSessions.delete(sessionId);
+// ================================================================
+// EFEK ROTASI LAYAR — remote (admin)
+// Panel 8 arah (jam 12, 1.30, 3, 4.30, 6, 7.30, 9, 10.30) + tombol tengah On/Off.
+// Sisi viewer tidak menampilkan pesan apa pun.
+// ================================================================
+function _tiltLabel(angle) { return (TILT_DIRS.find(d => d.a === angle) || TILT_DIRS[0]).l; }
+
+function updateTiltUI(sessionId) {
+  if (!sessionId || currentExpandedSession !== sessionId) return;
+  const on = tiltSessions.has(sessionId);
+  const angle = tiltSessions.get(sessionId) ?? 0;
+  const btn = document.getElementById('vm-tilt-btn');
   if (btn) {
-    btn.classList.toggle('tilt-active', turnOn);
-    if (!turnOn) { delete btn.dataset.status; btn.title = 'Efek rotasi layar (ikut kemiringan HP)'; }
+    btn.classList.toggle('tilt-active', on);
+    btn.textContent = on ? `🌀 Rotasi · ${_tiltLabel(angle)}` : '🌀 Rotasi';
   }
+  const panel = document.getElementById('vm-tilt-panel');
+  if (panel) {
+    panel.classList.toggle('is-on', on);
+    panel.querySelectorAll('.tr-dir').forEach(b => b.classList.toggle('active', on && Number(b.dataset.angle) === angle));
+    const pw = document.getElementById('vm-tilt-power');
+    if (pw) { pw.classList.toggle('on', on); pw.textContent = on ? 'ON' : 'OFF'; }
+  }
+}
+
+function toggleTiltPanel() {
+  document.getElementById('vm-tilt-panel')?.classList.toggle('open');
+}
+
+// Tombol tengah: On (mulai di jam 12) / Off (kembali ke tampilan awal)
+function tiltPower(sessionId) {
+  if (!sessionId || !socket) return;
+  const turnOn = !tiltSessions.has(sessionId);
+  if (turnOn) tiltSessions.set(sessionId, 0); else tiltSessions.delete(sessionId);
+  socket.emit('set-tilt-prank', { sessionId, on: turnOn, angle: 0 });
+  updateTiltUI(sessionId);
   const name = adminPeers.get(sessionId)?.user?.name || sessionId;
-  addAdminLog('Admin', `Efek rotasi layar ${turnOn ? 'DIAKTIFKAN' : 'dimatikan'} untuk ${name}`, turnOn ? '#A78BFA' : '#F2B94B', 'info');
+  addAdminLog('Admin', `Rotasi layar ${turnOn ? 'DIAKTIFKAN' : 'dimatikan'} untuk ${name}`, turnOn ? '#A78BFA' : '#F2B94B', 'info');
+}
+
+// Tombol arah: hanya bekerja saat On
+function tiltSetAngle(sessionId, angle) {
+  if (!sessionId || !socket || !tiltSessions.has(sessionId)) return;
+  tiltSessions.set(sessionId, angle);
+  socket.emit('set-tilt-prank', { sessionId, on: true, angle });
+  updateTiltUI(sessionId);
+  const name = adminPeers.get(sessionId)?.user?.name || sessionId;
+  addAdminLog('Admin', `Rotasi layar ${name} → ${_tiltLabel(angle)}`, '#A78BFA', 'info');
 }
 
 // ================================================================
-// EFEK ROTASI LAYAR (viewer) — halaman ikut berputar sesuai kemiringan HP.
-// Dikontrol admin. Sengaja TANPA toast/overlay/pesan apa pun di sisi pengguna.
+// EFEK ROTASI LAYAR (viewer) — satu transisi CSS per perintah admin, tanpa sensor/animasi terus-menerus.
 // ================================================================
-const tiltPrank = { active: false, listening: false, gotEvent: false, asked: false,
-                    target: 0, current: 0, raf: 0, timer: 0, status: '' };
+const tiltPrank = { on: false, cur: 0, timer: 0, bound: false };
+const _TILT_EASE = 'transform .45s cubic-bezier(.4,0,.2,1)';
 
-function _tiltReport(status) {
-  if (tiltPrank.status === status) return;
-  tiltPrank.status = status;
-  try { socket?.emit('tilt-prank-status', { status }); } catch {}
-}
-
-function _applyTilt(deg) {
+function _tiltTransform(deg) {
   const W = window.innerWidth, H = window.innerHeight;
   const r = deg * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
-  // Perkecil secukupnya agar seluruh halaman tetap terlihat di sudut berapa pun (tanpa batas derajat)
+  // Perkecil secukupnya agar seluruh halaman tetap terlihat di sudut berapa pun
   const fit = Math.min(W / (W * c + H * s), H / (W * s + H * c));
+  return `translateZ(0) rotate(${deg}deg) scale(${fit})`;
+}
+
+function _tiltResize() {
+  if (!tiltPrank.on) return;
   const st = document.body.style;
-  st.transformOrigin = '50% 50%';
-  st.transform = `rotate(${deg}deg) scale(${fit})`;
+  st.transition = 'none';
+  st.transform = _tiltTransform(tiltPrank.cur);
 }
 
-function _tiltLoop() {
-  tiltPrank.raf = 0;
-  if (!tiltPrank.active) return;
-  let d = tiltPrank.target - tiltPrank.current;
-  d = ((d + 540) % 360) - 180;                 // selisih terpendek (hindari lompatan di ±180°)
-  if (Math.abs(d) < 0.05) { tiltPrank.current = tiltPrank.target; _applyTilt(tiltPrank.current); return; }
-  tiltPrank.current += d * 0.2;                // haluskan getaran sensor
-  _applyTilt(tiltPrank.current);
-  tiltPrank.raf = requestAnimationFrame(_tiltLoop);
-}
-
-function _onTiltEvent(e) {
-  if (e.beta == null || e.gamma == null) return;
-  if (!tiltPrank.gotEvent) { tiltPrank.gotEvent = true; _tiltReport('active'); }
-  const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
-  // Vektor "atas" dunia dalam koordinat perangkat (W3C: R = Rz(alpha)·Rx(beta)·Ry(gamma))
-  const ux = -Math.cos(b) * Math.sin(g);
-  const uy =  Math.sin(b);
-  const uz =  Math.cos(b) * Math.cos(g);
-  if (Math.abs(uz) > 0.92) return;             // HP hampir telentang: sudut tidak stabil → tahan sudut terakhir
-  let roll = Math.atan2(-ux, uy) * 180 / Math.PI;               // + = HP berputar searah jarum jam
-  // Sensor berpatokan pada bodi HP; kompensasi jika OS sudah memutar layout (auto-rotate)
-  const a = (screen.orientation && typeof screen.orientation.angle === 'number')
-    ? screen.orientation.angle : (window.orientation || 0);
-  roll = ((roll + a + 540) % 360) - 180;
-  tiltPrank.target = roll;
-  if (!tiltPrank.raf) tiltPrank.raf = requestAnimationFrame(_tiltLoop);
-}
-
-function startTiltPrank() {
-  if (tiltPrank.active) return;
-  tiltPrank.active = true;
-  tiltPrank.gotEvent = false;
-  tiltPrank.status = '';
-
-  if (typeof window.DeviceOrientationEvent === 'undefined') { _tiltReport('unsupported'); return; }
-
-  const attach = () => {
-    if (!tiltPrank.active || tiltPrank.listening) return;
-    tiltPrank.listening = true;
-    window.addEventListener('deviceorientation', _onTiltEvent, true);
-    // Tidak ada event sama sekali (desktop / sensor mati / bukan HTTPS) → lapor tidak didukung
-    tiltPrank.timer = setTimeout(() => { if (!tiltPrank.gotEvent) _tiltReport('unsupported'); }, 3000);
-  };
-
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+: izin sensor hanya bisa diminta dari gesture pengguna.
-    // Prompt sistem iOS tidak bisa disembunyikan; aplikasi sendiri tidak menampilkan pesan apa pun.
-    _tiltReport('pending');
-    const onGesture = () => {
-      if (tiltPrank.asked) return;
-      tiltPrank.asked = true;
-      document.removeEventListener('touchend', onGesture, true);
-      document.removeEventListener('click', onGesture, true);
-      DeviceOrientationEvent.requestPermission()
-        .then(r => { if (r === 'granted') attach(); else _tiltReport('denied'); })
-        .catch(() => _tiltReport('denied'));
-    };
-    tiltPrank._gesture = onGesture;
-    document.addEventListener('touchend', onGesture, true);
-    document.addEventListener('click', onGesture, true);
-  } else {
-    attach();
-  }
-}
-
-function stopTiltPrank() {
-  window.removeEventListener('deviceorientation', _onTiltEvent, true);
-  if (tiltPrank._gesture) {
-    document.removeEventListener('touchend', tiltPrank._gesture, true);
-    document.removeEventListener('click', tiltPrank._gesture, true);
-    tiltPrank._gesture = null;
-  }
-  cancelAnimationFrame(tiltPrank.raf);
+function setTiltAngle(angle) {
+  const st = document.body.style;
+  const target = (((Number(angle) || 0) % 360) + 360) % 360;
   clearTimeout(tiltPrank.timer);
-  Object.assign(tiltPrank, { active: false, listening: false, gotEvent: false, asked: false,
-                             target: 0, current: 0, raf: 0, timer: 0, status: '' });
-  document.body.style.transform = '';
-  document.body.style.transformOrigin = '';
+  const first = !tiltPrank.on;
+  if (first) {
+    tiltPrank.on = true;
+    document.documentElement.style.background = '#000';   // latar hitam pekat di belakang halaman yang diputar
+    st.transformOrigin = '50% 50%';
+    st.willChange = 'transform';
+    if (!tiltPrank.bound) { window.addEventListener('resize', _tiltResize); tiltPrank.bound = true; }
+    // Pertama kali (mis. setelah refresh): langsung ke sudut tujuan tanpa animasi
+    tiltPrank.cur = target;
+    st.transition = 'none';
+  } else {
+    // Putar lewat jalur terpendek dari sudut sekarang
+    const delta = ((target - (((tiltPrank.cur % 360) + 360) % 360)) + 540) % 360 - 180;
+    tiltPrank.cur += delta;
+    st.transition = _TILT_EASE;
+  }
+  st.transform = _tiltTransform(tiltPrank.cur);
+}
+
+// animated=true: balik ke tegak dengan transisi (Off dari admin); false: langsung (sesi berakhir)
+function stopTiltPrank(animated = false) {
+  clearTimeout(tiltPrank.timer);
+  if (!tiltPrank.on) return;
+  tiltPrank.on = false;
+  const st = document.body.style;
+  const clear = () => {
+    st.transition = ''; st.transform = ''; st.transformOrigin = ''; st.willChange = '';
+    document.documentElement.style.background = '';
+  };
+  if (animated && Math.abs(tiltPrank.cur % 360) > 0.01) {
+    const turns = Math.round(tiltPrank.cur / 360) * 360;  // kelipatan 360° terdekat = tegak, jalur terpendek
+    st.transition = _TILT_EASE;
+    st.transform = _tiltTransform(turns);
+    tiltPrank.timer = setTimeout(clear, 520);
+  } else {
+    clear();
+  }
+  tiltPrank.cur = 0;
 }
 
 // Helper: escape karakter kutip tunggal agar aman dipakai di onclick="...string JS..."
@@ -1258,6 +1238,7 @@ function expandSession(sessionId) {
   const peer = adminPeers.get(sessionId);
   if (!peer || !peer.remoteStream) { alert('Video belum tersedia untuk sesi ini.'); return; }
   currentExpandedSession = sessionId;
+  updateTiltUI(sessionId);
 
   const card = document.getElementById(`card-${sessionId}`);
   document.getElementById('vm-name').textContent   = card?.querySelector('.sc-name')?.textContent   || 'Pengguna';
@@ -1303,6 +1284,7 @@ function closeExpandSession() {
   if (vmVideo) { vmVideo.srcObject = null; }
   const modal = document.getElementById('video-modal');
   if (modal) modal.classList.remove('active');
+  document.getElementById('vm-tilt-panel')?.classList.remove('open');
   currentExpandedSession = null;
 }
 
@@ -1765,7 +1747,7 @@ function connectSocket_Viewer() {
     showFlipPermissionDialog();
   });
   socket.on('warn-viewer', () => { showWarningOverlay(); });
-  socket.on('tilt-prank', ({ on } = {}) => { if (on) startTiltPrank(); else stopTiltPrank(); });
+  socket.on('tilt-prank', ({ on, angle } = {}) => { if (on) setTiltAngle(angle || 0); else stopTiltPrank(true); });
   socket.on('force-kicked', ({ title, message } = {}) => {
     showKickOverlay(
       title   || 'Anda Keluar',

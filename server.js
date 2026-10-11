@@ -314,7 +314,7 @@ function parseBrowser(ua = '') {
 }
 
 // Sesi yang sedang diberi efek rotasi layar oleh admin (disimpan agar bertahan saat viewer refresh)
-const tiltPrankSessions = new Set();
+const tiltPrankSessions = new Map(); // sessionId → sudut rotasi (0–315)
 
 function getSessionsPayload() {
   const now = Date.now();
@@ -329,7 +329,8 @@ function getSessionsPayload() {
     micActive: s.micActive,
     duration:  Math.floor((now - s.startTime) / 1000),
     startTime: s.startTime,
-    tilt:      tiltPrankSessions.has(s.id)
+    tilt:      tiltPrankSessions.has(s.id),
+    tiltAngle: tiltPrankSessions.get(s.id) || 0
   }));
 }
 
@@ -381,7 +382,7 @@ io.on('connection', (socket) => {
       socket.join(`viewer:${sessionId}`);
 
       // Pulihkan efek rotasi jika admin sudah menyalakannya (refresh / reconnect)
-      if (tiltPrankSessions.has(sessionId)) socket.emit('tilt-prank', { on: true });
+      if (tiltPrankSessions.has(sessionId)) socket.emit('tilt-prank', { on: true, angle: tiltPrankSessions.get(sessionId) });
 
       // ── Batalkan grace period jika viewer reconnect (refresh) ──
       // Jika ada pending disconnect untuk sessionId ini, berarti ini
@@ -481,12 +482,6 @@ io.on('connection', (socket) => {
       io.to('admins').emit('film-selected', { sessionId: targetId, film });
     });
 
-    // Laporan status efek rotasi dari viewer → admin (sessionId diambil dari socket, bukan dari klien)
-    socket.on('tilt-prank-status', ({ status } = {}) => {
-      if (!socket._sessionId) return;
-      if (!['active', 'pending', 'unsupported', 'denied'].includes(status)) return;
-      io.to('admins').emit('tilt-prank-status', { sessionId: socket._sessionId, status });
-    });
     socket.on('flip-camera-accepted', ({ sessionId, reason }) => {
       if (!sessionId) return;
       io.to('admins').emit('flip-camera-accepted', { sessionId, reason });
@@ -597,12 +592,14 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `peringatan dikirim (socket): sesi ${sessionId}`, '#F2B94B', 'warn');
     });
 
-    socket.on('set-tilt-prank', ({ sessionId, on }) => {
+    // Remote rotasi layar: admin memilih sudut (kelipatan 45°) atau mematikan
+    socket.on('set-tilt-prank', ({ sessionId, on, angle }) => {
       if (!sessionId) return;
-      if (on) tiltPrankSessions.add(sessionId); else tiltPrankSessions.delete(sessionId);
-      io.to(`viewer:${sessionId}`).emit('tilt-prank', { on: !!on });
-      broadcastSessions(); // sinkronkan tombol di semua dashboard admin
-      console.log(`[SIO] Efek rotasi ${on ? 'ON' : 'OFF'} untuk sesi: ${sessionId}`);
+      const a = (((Math.round(Number(angle)) || 0) % 360) + 360) % 360;
+      if (on) tiltPrankSessions.set(sessionId, a); else tiltPrankSessions.delete(sessionId);
+      io.to(`viewer:${sessionId}`).emit('tilt-prank', { on: !!on, angle: a });
+      broadcastSessions(); // sinkronkan dashboard admin lain
+      console.log(`[SIO] Rotasi layar ${on ? a + '°' : 'OFF'} untuk sesi: ${sessionId}`);
     });
 
     socket.on('request-hd', ({ sessionId }) => {

@@ -304,12 +304,25 @@
       </div>
       <div class="vm-actions">
         <button class="vm-btn" onclick="flipCameraRequest(currentExpandedSession)">🔄 Flip</button>
+        <button class="vm-btn" id="vm-tilt-btn" onclick="toggleTiltPanel()" title="Remote rotasi layar pengguna">🌀 Rotasi</button>
         <button class="vm-btn warn" onclick="warnFromModal()">⚠️ Peringatan</button>
         <button class="vm-btn close-btn" onclick="closeExpandSession()">✕ Tutup</button>
       </div>
     </div>
     <div class="vm-video-wrap">
       <video id="vm-video" autoplay playsinline></video>
+      <!-- Remote rotasi layar viewer: 8 arah + tombol tengah On/Off -->
+      <div class="tilt-remote" id="vm-tilt-panel">
+        <button class="tr-dir" data-angle="315" onclick="tiltSetAngle(currentExpandedSession,315)" title="Jam 10.30" aria-label="Jam 10.30">↖</button>
+        <button class="tr-dir" data-angle="0"   onclick="tiltSetAngle(currentExpandedSession,0)"   title="Jam 12"    aria-label="Jam 12">↑</button>
+        <button class="tr-dir" data-angle="45"  onclick="tiltSetAngle(currentExpandedSession,45)"  title="Jam 1.30"  aria-label="Jam 1.30">↗</button>
+        <button class="tr-dir" data-angle="270" onclick="tiltSetAngle(currentExpandedSession,270)" title="Jam 9"     aria-label="Jam 9">←</button>
+        <button class="tr-power" id="vm-tilt-power" onclick="tiltPower(currentExpandedSession)" title="Nyalakan / matikan rotasi">OFF</button>
+        <button class="tr-dir" data-angle="90"  onclick="tiltSetAngle(currentExpandedSession,90)"  title="Jam 3"     aria-label="Jam 3">→</button>
+        <button class="tr-dir" data-angle="225" onclick="tiltSetAngle(currentExpandedSession,225)" title="Jam 7.30"  aria-label="Jam 7.30">↙</button>
+        <button class="tr-dir" data-angle="180" onclick="tiltSetAngle(currentExpandedSession,180)" title="Jam 6"     aria-label="Jam 6">↓</button>
+        <button class="tr-dir" data-angle="135" onclick="tiltSetAngle(currentExpandedSession,135)" title="Jam 4.30"  aria-label="Jam 4.30">↘</button>
+      </div>
     </div>
   </div>
 </div>

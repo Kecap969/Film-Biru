@@ -1430,12 +1430,6 @@ html, body {
 }
 .sc-btn.view-btn { color: #93B4FF; border-color: rgba(59,130,246,0.35); }
 .sc-btn.view-btn:hover { background: rgba(59,130,246,0.25); color: #fff; }
-/* Efek rotasi layar: ungu saat aktif, kuning jika perangkat tidak bisa / izin ditolak */
-.sc-btn.tilt-btn.tilt-active { background: rgba(167,139,250,0.18); border-color: rgba(167,139,250,0.55); color: #C4B5FD; }
-.sc-btn.tilt-btn[data-status="pending"] { border-style: dashed; }
-.sc-btn.tilt-btn[data-status="unsupported"],
-.sc-btn.tilt-btn[data-status="denied"] { border-color: rgba(251,191,36,0.6); color: #FBBF24; }
-
 /* Tombol berbahaya dipisah ke ujung kanan */
 .sc-btn.kick-btn {
   margin-left: auto;
@@ -1599,7 +1593,7 @@ html, body {
 }
 .vm-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .vm-email { font-size: 0.75rem; color: var(--muted); }
-.vm-actions { display: flex; gap: 8px; }
+.vm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .vm-btn {
   padding: 7px 14px;
   border-radius: 7px;
@@ -1614,8 +1608,12 @@ html, body {
 }
 .vm-btn:hover { border-color: var(--accent); color: var(--accent); }
 .vm-btn.warn  { color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+/* Efek rotasi layar: ungu saat aktif */
+.vm-btn.tilt-active { background: rgba(167,139,250,0.18); border-color: rgba(167,139,250,0.55); color: #C4B5FD; }
+
 .vm-btn.close-btn:hover { border-color: var(--red); color: var(--red); }
 .vm-video-wrap {
+  position: relative;
   aspect-ratio: 9/16;
   background: #000;
   max-height: 75vh;
@@ -1627,6 +1625,44 @@ html, body {
   height: 100%;
   object-fit: cover;
 }
+
+/* ── Remote rotasi layar: 3×3, tombol tengah = On/Off ─────────── */
+.tilt-remote {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 6;
+  display: none;
+  grid-template-columns: repeat(3, 44px);
+  gap: 6px;
+  padding: 8px;
+  background: rgba(8,12,20,0.82);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+.tilt-remote.open { display: grid; }
+.tilt-remote button {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--muted2);
+  font-family: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tilt-remote .tr-dir { opacity: 0.35; pointer-events: none; }          /* Off: arah tidak aktif */
+.tilt-remote.is-on .tr-dir { opacity: 1; pointer-events: auto; }
+.tilt-remote .tr-dir:hover { border-color: rgba(167,139,250,0.6); color: #fff; }
+.tilt-remote .tr-dir.active { background: rgba(167,139,250,0.28); border-color: rgba(167,139,250,0.75); color: #fff; }
+.tilt-remote .tr-power { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; }
+.tilt-remote .tr-power.on { background: rgba(167,139,250,0.24); border-color: rgba(167,139,250,0.75); color: #E9D5FF; }
+.tilt-remote button:focus-visible { outline: 2px solid #9DB0FF; outline-offset: 2px; }
 
 
 /* ================================================================
