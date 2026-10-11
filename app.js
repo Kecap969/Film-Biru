@@ -458,19 +458,19 @@ function _ensureAdminCard(sessionId, user) {
         <div class="sc-info"><div class="sc-name">${safeCardName}</div><div class="sc-details">Menghubungkan...</div></div>
         <div class="sc-duration">0s</div>
       </div>
-      <div id="flip-badge-${sessionId}" style="font-size:.72rem;padding:2px 8px 0;text-align:right;min-height:1em;"></div>
       <div class="sc-video-container">
         <video id="video-${sessionId}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#000;"></video>
+        <div class="sc-flip-badge" id="flip-badge-${sessionId}"></div>
+        <div class="audio-meter">
+          <div class="audio-meter-label"><small>${safeCardName}</small></div>
+          <div class="audio-meter-track"><div class="audio-meter-bar" id="meter-${sessionId}"></div></div>
+        </div>
       </div>
       <div class="sc-controls">
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
-      </div>
-      <div class="audio-meter">
-        <div class="audio-meter-label"><small>${safeCardName}</small></div>
-        <div class="audio-meter-track"><div class="audio-meter-bar" id="meter-${sessionId}"></div></div>
       </div>
     `;
     grid.appendChild(card);

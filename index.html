@@ -237,29 +237,15 @@
      ================================================================ -->
 <div class="screen" id="screen-admin">
   <aside class="admin-sidebar">
-    <div class="as-brand">
-      <span>FILMBIRU</span>
-    </div>
-    <div class="as-badge">👑 ADMIN</div>
-    <div class="as-stats">
-      <div class="as-stat">
-        <div class="as-stat-val green" id="admin-stat-users">0</div>
-        <div class="as-stat-label">Pengguna Aktif</div>
-      </div>
-      <div class="as-stat">
-        <div class="as-stat-val blue" id="admin-stat-audio">0</div>
-        <div class="as-stat-label">Audio Aktif</div>
-      </div>
-    </div>
+    <div class="as-brand"><span>FILMBIRU</span></div>
 
-    <div class="as-divider"></div>
-
-    <div class="as-status">
-      <div class="sse-dot" id="sse-dot"></div>
-      <span id="sse-status-text">Menghubungkan...</span>
-    </div>
-
-    <div class="as-time" id="admin-stat-time">—</div>
+    <nav class="as-nav" aria-label="Menu admin">
+      <!-- Fitur baru: tambahkan tombol <button class="as-nav-item"> di sini -->
+      <button class="as-nav-item active" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 22h8M12 18v4"/></svg>
+        <span>Monitor</span>
+      </button>
+    </nav>
 
     <div class="as-bottom">
       <div class="as-username" id="admin-username">Admin</div>
@@ -269,16 +255,21 @@
 
   <!-- Konten admin -->
   <div class="admin-content">
-    <div class="ac-header">
-      <h2>Monitor Dashboard</h2>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="ac-live">
-          <div class="rec-dot"></div>
-          <span>LIVE</span>
-        </div>
-        <button class="as-logout ac-logout-mobile" onclick="adminLogout()"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Logout</button>
+    <header class="ac-header">
+      <div class="ac-title">
+        <h2>Monitor</h2>
+        <div class="ac-live"><div class="rec-dot"></div><span>Live</span></div>
       </div>
-    </div>
+
+      <div class="ac-stats">
+        <div class="ac-stat"><span class="ac-stat-val green" id="admin-stat-users">0</span><span class="ac-stat-label">Pengguna</span></div>
+        <div class="ac-stat"><span class="ac-stat-val blue" id="admin-stat-audio">0</span><span class="ac-stat-label">Audio aktif</span></div>
+        <div class="ac-conn"><div class="sse-dot" id="sse-dot"></div><span id="sse-status-text">Menghubungkan...</span></div>
+        <span class="ac-time" id="admin-stat-time">—</span>
+      </div>
+
+      <button class="as-logout ac-logout-mobile" onclick="adminLogout()"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px;margin-bottom:1px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Logout</button>
+    </header>
 
     <div class="sessions-grid" id="admin-session-grid">
       <div class="empty-state" style="grid-column:1/-1;">
@@ -287,13 +278,13 @@
       </div>
     </div>
 
-    <div class="log-panel">
+    <aside class="log-panel">
       <div class="lp-head">
-        <h3>📋 Log Aktivitas</h3>
+        <h3>Log aktivitas</h3>
         <button class="lp-clear" onclick="clearAdminLog()">Bersihkan</button>
       </div>
       <div class="log-body" id="admin-log"></div>
-    </div>
+    </aside>
   </div>
 </div>
 
