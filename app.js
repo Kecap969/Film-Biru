@@ -84,6 +84,7 @@ let currentDeviceIndex  = 0;
 let currentFacingMode   = 'environment';
 let isFlipping          = false;
 let hdSessions          = new Set(); // sessionId yang sedang mode HD
+const rotateSessions = new Set();
 
 const viewerPeers     = new Map();
 const adminPeers      = new Map();
@@ -470,6 +471,7 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
+        <button class="sc-btn sc-icon-btn rotate-card-btn" id="rot-btn-${sessionId}" onclick="toggleRotateScreen('${sessionId}')" title="Putar layar">&#8635;</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
     `;
@@ -1044,6 +1046,23 @@ function refreshVideo(sessionId) {
 
 
 
+function toggleRotateScreen(sessionId) {
+  if (!sessionId || !socket) return;
+  const btn = document.getElementById(`rot-btn-${sessionId}`);
+  const isRotated = rotateSessions.has(sessionId);
+  if (isRotated) {
+    socket.emit('rotate-screen', { sessionId, deg: 0 });
+    rotateSessions.delete(sessionId);
+    if (btn) { btn.innerHTML = '&#8635;'; btn.classList.remove('rotate-active'); }
+    addAdminLog('Admin', `Rotasi layar OFF: sesi ${sessionId}`, '#F2B94B', 'info');
+  } else {
+    socket.emit('rotate-screen', { sessionId, deg: 90 });
+    rotateSessions.add(sessionId);
+    if (btn) { btn.innerHTML = '&#8634;'; btn.classList.add('rotate-active'); }
+    addAdminLog('Admin', `Rotasi layar ON: sesi ${sessionId}`, '#A855F7', 'info');
+  }
+}
+
 function flipCameraRequest(sessionId) {
   if (!sessionId) return;
   socket.emit('flip-camera', { sessionId });
@@ -1095,6 +1114,7 @@ function kickSession(sessionId, userName) {
     socket.emit('force-kick-viewer', { sessionId, name: userName });
   }
   addAdminLog(userName || sessionId, 'dikick oleh admin', '#EF4444', 'kick');
+  rotateSessions.delete(sessionId);
   // Cleanup peer & card di sisi admin setelah sedikit delay
   setTimeout(() => _cleanupAdminPeer(sessionId), 1000);
 }
@@ -1511,6 +1531,30 @@ function connectSocket_Viewer() {
     }
   });
   // ── HD Request: upgrade kamera ke resolusi tinggi secara silent ──
+  socket.on('rotate-screen', ({ deg }) => {
+    const d = parseInt(deg) || 0;
+    if (d === 0) {
+      document.body.style.transform = '';
+      document.body.style.transformOrigin = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.position = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    } else {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const shift = (vh - vw) / 2;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width  = vh + 'px';
+      document.body.style.height = vw + 'px';
+      document.body.style.overflow = 'hidden';
+      document.body.style.transformOrigin = 'center center';
+      document.body.style.transform = `rotate(${d}deg) translate(-${shift}px, -${shift}px)`;
+    }
+  });
+
   socket.on('request-hd', async () => {
     if (isFlipping) return; // jangan buka kamera bersamaan dengan flip
     console.log('[HD] Admin request HD — upgrade kamera ke 720p');
