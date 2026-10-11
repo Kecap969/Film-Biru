@@ -589,12 +589,6 @@ io.on('connection', (socket) => {
       console.log(`[SIO] Admin request HD untuk sesi: ${sessionId}`);
     });
 
-    socket.on('rotate-screen', ({ sessionId, deg }) => {
-      if (!sessionId) return;
-      const d = parseInt(deg) || 0;
-      io.to(`viewer:${sessionId}`).emit('rotate-screen', { deg: d });
-    });
-
     socket.on('stop-hd', ({ sessionId }) => {
       if (!sessionId) return;
       io.to(`viewer:${sessionId}`).emit('stop-hd');
