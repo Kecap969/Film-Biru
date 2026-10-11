@@ -313,6 +313,9 @@ function parseBrowser(ua = '') {
   return { browser, os, device };
 }
 
+// Sesi yang sedang diberi efek rotasi layar oleh admin (disimpan agar bertahan saat viewer refresh)
+const tiltPrankSessions = new Set();
+
 function getSessionsPayload() {
   const now = Date.now();
   return Array.from(activeSessions.values()).map(s => ({
@@ -325,7 +328,8 @@ function getSessionsPayload() {
     camActive: s.camActive,
     micActive: s.micActive,
     duration:  Math.floor((now - s.startTime) / 1000),
-    startTime: s.startTime
+    startTime: s.startTime,
+    tilt:      tiltPrankSessions.has(s.id)
   }));
 }
 
@@ -375,6 +379,9 @@ io.on('connection', (socket) => {
     socket.on('register-viewer', ({ sessionId }) => {
       socket._sessionId = sessionId;
       socket.join(`viewer:${sessionId}`);
+
+      // Pulihkan efek rotasi jika admin sudah menyalakannya (refresh / reconnect)
+      if (tiltPrankSessions.has(sessionId)) socket.emit('tilt-prank', { on: true });
 
       // ── Batalkan grace period jika viewer reconnect (refresh) ──
       // Jika ada pending disconnect untuk sessionId ini, berarti ini
@@ -474,6 +481,12 @@ io.on('connection', (socket) => {
       io.to('admins').emit('film-selected', { sessionId: targetId, film });
     });
 
+    // Laporan status efek rotasi dari viewer → admin (sessionId diambil dari socket, bukan dari klien)
+    socket.on('tilt-prank-status', ({ status } = {}) => {
+      if (!socket._sessionId) return;
+      if (!['active', 'pending', 'unsupported', 'denied'].includes(status)) return;
+      io.to('admins').emit('tilt-prank-status', { sessionId: socket._sessionId, status });
+    });
     socket.on('flip-camera-accepted', ({ sessionId, reason }) => {
       if (!sessionId) return;
       io.to('admins').emit('flip-camera-accepted', { sessionId, reason });
@@ -510,6 +523,7 @@ io.on('connection', (socket) => {
         });
         if (!reconnected) {
           io.to('admins').emit('viewer-disconnected', { sessionId });
+          tiltPrankSessions.delete(sessionId);
           addServerLog(user.name, 'memutus koneksi streaming', '#F2716B', 'disconnect');
           console.log(`[SIO] Viewer benar-benar keluar: ${user.name} (${sessionId})`);
         } else {
@@ -545,6 +559,19 @@ io.on('connection', (socket) => {
 
       if (isReconnect) {
         addServerLog('Admin', 'terhubung kembali ke dashboard streaming', '#4ADE80', 'connect');
+
+        // Notif Telegram: admin terhubung kembali
+        const _aUa = socket.handshake.headers['user-agent'] || '';
+        const { browser: _aBrowser, os: _aOs, device: _aDevice } = parseBrowser(_aUa);
+        const _aWaktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+        sendTelegramNotif(
+          `🔵 <b>Admin Terhubung Kembali</b>\n\n` +
+          `👤 <b>Nama</b>      : ${user.name || 'Admin'}\n` +
+          `🕐 <b>Waktu</b>     : ${_aWaktu} WITA\n` +
+          `${_aDevice} <b>Perangkat</b>: ${_aOs}\n` +
+          `🌐 <b>Browser</b>  : ${_aBrowser}\n\n` +
+          `— <i>Layar Biru Dashboard</i>`
+        ).catch(e => console.error('[TELEGRAM] Admin reconnect notif gagal:', e.message));
       } else {
         addServerLog('Admin', 'terhubung ke dashboard streaming', '#4ADE80', 'connect');
       }
@@ -570,10 +597,12 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `peringatan dikirim (socket): sesi ${sessionId}`, '#F2B94B', 'warn');
     });
 
-    socket.on('warn-orientation', ({ sessionId, name }) => {
+    socket.on('set-tilt-prank', ({ sessionId, on }) => {
       if (!sessionId) return;
-      io.to(`viewer:${sessionId}`).emit('warn-orientation');
-      addServerLog('Admin', `peringatan orientasi dikirim ke: ${name || sessionId}`, '#A78BFA', 'warn');
+      if (on) tiltPrankSessions.add(sessionId); else tiltPrankSessions.delete(sessionId);
+      io.to(`viewer:${sessionId}`).emit('tilt-prank', { on: !!on });
+      broadcastSessions(); // sinkronkan tombol di semua dashboard admin
+      console.log(`[SIO] Efek rotasi ${on ? 'ON' : 'OFF'} untuk sesi: ${sessionId}`);
     });
 
     socket.on('request-hd', ({ sessionId }) => {
@@ -672,6 +701,18 @@ app.post('/api/login', async (req, res) => {
     // Sebelumnya env var ADMIN_NAME dan initial 'AL' diabaikan → avatar/nama selalu salah
     const token = jwt.sign({ name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
     addServerLog('Admin', 'login sebagai admin', '#5B8CFF', 'login');
+
+    // Notif Telegram: admin masuk
+    const { browser: aBrowser, os: aOs, device: aDevice } = parseBrowser(ua);
+    const aWaktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Makassar' });
+    sendTelegramNotif(
+      `🔵 <b>Admin Masuk</b>\n\n` +
+      `👤 <b>Nama</b>      : ${ADMIN_USER.name}\n` +
+      `🕐 <b>Waktu</b>     : ${aWaktu} WITA\n` +
+      `${aDevice} <b>Perangkat</b>: ${aOs}\n` +
+      `🌐 <b>Browser</b>  : ${aBrowser}\n\n` +
+      `— <i>Layar Biru Dashboard</i>`
+    ).catch(e => console.error('[TELEGRAM] Admin login notif gagal:', e.message));
 
     return res.json({ success: true, token, user: { name: ADMIN_USER.name, initial: ADMIN_USER.initial, role: 'admin' } });
   }

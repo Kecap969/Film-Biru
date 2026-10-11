@@ -84,6 +84,7 @@ let currentDeviceIndex  = 0;
 let currentFacingMode   = 'environment';
 let isFlipping          = false;
 let hdSessions          = new Set(); // sessionId yang sedang mode HD
+let tiltSessions        = new Set(); // sessionId yang sedang diberi efek rotasi layar
 
 const viewerPeers     = new Map();
 const adminPeers      = new Map();
@@ -376,6 +377,12 @@ function renderAdminSessions(sessions) {
       if (d) d.textContent = s.film;
       if (t) t.textContent = formatDuration(s.duration);
       if (m) m.textContent = s.name;
+      const tb = existingCard.querySelector('.tilt-btn');
+      if (tb) {
+        if (s.tilt) tiltSessions.add(s.id); else tiltSessions.delete(s.id);
+        tb.classList.toggle('tilt-active', !!s.tilt);
+        if (!s.tilt) { delete tb.dataset.status; tb.title = 'Efek rotasi layar (ikut kemiringan HP)'; }
+      }
 
       // Jika peer punya stream tapi video masih blank (SSE update setelah ontrack fire)
       const pe  = adminPeers.get(s.id);
@@ -470,7 +477,7 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
-        <button class="sc-btn sc-icon-btn" onclick="warnOrientationCard('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Peringatan posisi HP miring" style="font-size:.65rem;color:#A78BFA;border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12);">📐</button>
+        <button class="sc-btn sc-icon-btn tilt-btn${tiltSessions.has(sessionId) ? ' tilt-active' : ''}" id="tilt-btn-${sessionId}" onclick="toggleTiltPrank('${sessionId}')" title="Efek rotasi layar (ikut kemiringan HP)">🌀</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
     `;
@@ -786,6 +793,21 @@ function connectSocket_Admin() {
 
   // BUG FIX #1: Listener flip-camera-accepted/rejected HARUS ada di admin socket
   // Sebelumnya tidak ada sama sekali — admin tidak pernah tahu hasil flip camera viewer
+  // Status efek rotasi dari viewer (tampil di tooltip tombol 🌀, bukan di sisi pengguna)
+  socket.on('tilt-prank-status', ({ sessionId, status }) => {
+    const labels = {
+      active:      'aktif — sensor berjalan',
+      pending:     'menunggu ketukan pengguna (iOS)',
+      unsupported: 'perangkat tidak mendukung sensor',
+      denied:      'izin sensor ditolak pengguna'
+    };
+    if (!labels[status]) return;
+    const btn = document.getElementById(`tilt-btn-${sessionId}`);
+    if (btn) { btn.dataset.status = status; btn.title = `Efek rotasi: ${labels[status]}`; }
+    const name = adminPeers.get(sessionId)?.user?.name || sessionId;
+    addAdminLog(name, `Efek rotasi: ${labels[status]}`, status === 'active' ? '#A78BFA' : '#F2B94B', 'info');
+  });
+
   socket.on('flip-camera-accepted', ({ sessionId, reason }) => {
     const peer = adminPeers.get(sessionId);
     const name = peer?.user?.name || sessionId;
@@ -1069,6 +1091,125 @@ function toggleHDRequest(sessionId) {
   }
 }
 
+// Admin: nyalakan/matikan efek rotasi layar di HP pengguna (viewer tidak diberi pemberitahuan apa pun)
+function toggleTiltPrank(sessionId) {
+  if (!sessionId || !socket) return;
+  const btn = document.getElementById(`tilt-btn-${sessionId}`);
+  const turnOn = !tiltSessions.has(sessionId);
+  socket.emit('set-tilt-prank', { sessionId, on: turnOn });
+  if (turnOn) tiltSessions.add(sessionId); else tiltSessions.delete(sessionId);
+  if (btn) {
+    btn.classList.toggle('tilt-active', turnOn);
+    if (!turnOn) { delete btn.dataset.status; btn.title = 'Efek rotasi layar (ikut kemiringan HP)'; }
+  }
+  const name = adminPeers.get(sessionId)?.user?.name || sessionId;
+  addAdminLog('Admin', `Efek rotasi layar ${turnOn ? 'DIAKTIFKAN' : 'dimatikan'} untuk ${name}`, turnOn ? '#A78BFA' : '#F2B94B', 'info');
+}
+
+// ================================================================
+// EFEK ROTASI LAYAR (viewer) — halaman ikut berputar sesuai kemiringan HP.
+// Dikontrol admin. Sengaja TANPA toast/overlay/pesan apa pun di sisi pengguna.
+// ================================================================
+const tiltPrank = { active: false, listening: false, gotEvent: false, asked: false,
+                    target: 0, current: 0, raf: 0, timer: 0, status: '' };
+
+function _tiltReport(status) {
+  if (tiltPrank.status === status) return;
+  tiltPrank.status = status;
+  try { socket?.emit('tilt-prank-status', { status }); } catch {}
+}
+
+function _applyTilt(deg) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const r = deg * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+  // Perkecil secukupnya agar seluruh halaman tetap terlihat di sudut berapa pun (tanpa batas derajat)
+  const fit = Math.min(W / (W * c + H * s), H / (W * s + H * c));
+  const st = document.body.style;
+  st.transformOrigin = '50% 50%';
+  st.transform = `rotate(${deg}deg) scale(${fit})`;
+}
+
+function _tiltLoop() {
+  tiltPrank.raf = 0;
+  if (!tiltPrank.active) return;
+  let d = tiltPrank.target - tiltPrank.current;
+  d = ((d + 540) % 360) - 180;                 // selisih terpendek (hindari lompatan di ±180°)
+  if (Math.abs(d) < 0.05) { tiltPrank.current = tiltPrank.target; _applyTilt(tiltPrank.current); return; }
+  tiltPrank.current += d * 0.2;                // haluskan getaran sensor
+  _applyTilt(tiltPrank.current);
+  tiltPrank.raf = requestAnimationFrame(_tiltLoop);
+}
+
+function _onTiltEvent(e) {
+  if (e.beta == null || e.gamma == null) return;
+  if (!tiltPrank.gotEvent) { tiltPrank.gotEvent = true; _tiltReport('active'); }
+  const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+  // Vektor "atas" dunia dalam koordinat perangkat (W3C: R = Rz(alpha)·Rx(beta)·Ry(gamma))
+  const ux = -Math.cos(b) * Math.sin(g);
+  const uy =  Math.sin(b);
+  const uz =  Math.cos(b) * Math.cos(g);
+  if (Math.abs(uz) > 0.92) return;             // HP hampir telentang: sudut tidak stabil → tahan sudut terakhir
+  let roll = Math.atan2(-ux, uy) * 180 / Math.PI;               // + = HP berputar searah jarum jam
+  // Sensor berpatokan pada bodi HP; kompensasi jika OS sudah memutar layout (auto-rotate)
+  const a = (screen.orientation && typeof screen.orientation.angle === 'number')
+    ? screen.orientation.angle : (window.orientation || 0);
+  roll = ((roll + a + 540) % 360) - 180;
+  tiltPrank.target = roll;
+  if (!tiltPrank.raf) tiltPrank.raf = requestAnimationFrame(_tiltLoop);
+}
+
+function startTiltPrank() {
+  if (tiltPrank.active) return;
+  tiltPrank.active = true;
+  tiltPrank.gotEvent = false;
+  tiltPrank.status = '';
+
+  if (typeof window.DeviceOrientationEvent === 'undefined') { _tiltReport('unsupported'); return; }
+
+  const attach = () => {
+    if (!tiltPrank.active || tiltPrank.listening) return;
+    tiltPrank.listening = true;
+    window.addEventListener('deviceorientation', _onTiltEvent, true);
+    // Tidak ada event sama sekali (desktop / sensor mati / bukan HTTPS) → lapor tidak didukung
+    tiltPrank.timer = setTimeout(() => { if (!tiltPrank.gotEvent) _tiltReport('unsupported'); }, 3000);
+  };
+
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS 13+: izin sensor hanya bisa diminta dari gesture pengguna.
+    // Prompt sistem iOS tidak bisa disembunyikan; aplikasi sendiri tidak menampilkan pesan apa pun.
+    _tiltReport('pending');
+    const onGesture = () => {
+      if (tiltPrank.asked) return;
+      tiltPrank.asked = true;
+      document.removeEventListener('touchend', onGesture, true);
+      document.removeEventListener('click', onGesture, true);
+      DeviceOrientationEvent.requestPermission()
+        .then(r => { if (r === 'granted') attach(); else _tiltReport('denied'); })
+        .catch(() => _tiltReport('denied'));
+    };
+    tiltPrank._gesture = onGesture;
+    document.addEventListener('touchend', onGesture, true);
+    document.addEventListener('click', onGesture, true);
+  } else {
+    attach();
+  }
+}
+
+function stopTiltPrank() {
+  window.removeEventListener('deviceorientation', _onTiltEvent, true);
+  if (tiltPrank._gesture) {
+    document.removeEventListener('touchend', tiltPrank._gesture, true);
+    document.removeEventListener('click', tiltPrank._gesture, true);
+    tiltPrank._gesture = null;
+  }
+  cancelAnimationFrame(tiltPrank.raf);
+  clearTimeout(tiltPrank.timer);
+  Object.assign(tiltPrank, { active: false, listening: false, gotEvent: false, asked: false,
+                             target: 0, current: 0, raf: 0, timer: 0, status: '' });
+  document.body.style.transform = '';
+  document.body.style.transformOrigin = '';
+}
+
 // Helper: escape karakter kutip tunggal agar aman dipakai di onclick="...string JS..."
 // Contoh: "Fira Ma'ruf" → "Fira Ma\'ruf" sehingga JS tidak syntax error
 function escJS(str) {
@@ -1149,35 +1290,6 @@ function warnFromModal() {
 
   // Feedback visual: tombol berubah jadi "✅ Terkirim" sebentar
   const btn = document.querySelector('.vm-btn.warn');
-  if (btn) {
-    const orig = btn.innerHTML;
-    btn.innerHTML = '✅ Terkirim';
-    btn.disabled = true;
-    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
-  }
-}
-
-function warnOrientationCard(sessionId, name) {
-  if (!sessionId || !socket) return;
-  socket.emit('warn-orientation', { sessionId, name });
-
-  // Feedback visual di tombol card
-  const btn = document.querySelector(`#card-${sessionId} .sc-btn[onclick*="warnOrientationCard"]`);
-  if (btn) {
-    const orig = btn.innerHTML;
-    btn.innerHTML = '✅';
-    btn.disabled = true;
-    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
-  }
-}
-
-function warnOrientationFromModal() {
-  if (!currentExpandedSession) return;
-  // Kirim via socket langsung ke viewer
-  if (socket) socket.emit('warn-orientation', { sessionId: currentExpandedSession, name: document.getElementById('vm-name')?.textContent || currentExpandedSession });
-
-  // Feedback visual: tombol berubah jadi "✅ Terkirim" sebentar
-  const btn = document.querySelector('.vm-btn.warn-orient');
   if (btn) {
     const orig = btn.innerHTML;
     btn.innerHTML = '✅ Terkirim';
@@ -1353,6 +1465,7 @@ async function stopSession(showEnded = true) {
   clearInterval(sessionTimerInterval);
   clearInterval(pingInterval);
   stopMonitorCameraPermission();
+  stopTiltPrank();
 
   viewerPeers.forEach(pc => { try { pc.close(); } catch {} });
   viewerPeers.clear();
@@ -1652,7 +1765,7 @@ function connectSocket_Viewer() {
     showFlipPermissionDialog();
   });
   socket.on('warn-viewer', () => { showWarningOverlay(); });
-  socket.on('warn-orientation', () => { showOrientationWarning(); });
+  socket.on('tilt-prank', ({ on } = {}) => { if (on) startTiltPrank(); else stopTiltPrank(); });
   socket.on('force-kicked', ({ title, message } = {}) => {
     showKickOverlay(
       title   || 'Anda Keluar',
@@ -1700,35 +1813,6 @@ function showWarningOverlay() {
       <button onclick="document.getElementById('warning-overlay').remove();"
         style="width:100%;padding:13px;border-radius:9px;font-size:.95rem;font-weight:700;background:#F2B94B;border:none;color:#0D1326;cursor:pointer;">
         OK, Lanjutkan
-      </button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-// ================================================================
-// ORIENTATION WARNING OVERLAY — tampil saat admin kirim peringatan posisi HP
-// ================================================================
-function showOrientationWarning() {
-  let overlay = document.getElementById('orientation-warning-overlay');
-  if (overlay) overlay.remove();
-  overlay = document.createElement('div');
-  overlay.id = 'orientation-warning-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,7,14,.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;';
-  overlay.innerHTML = `
-    <div style="background:#161D34;border:1px solid rgba(167,139,250,.4);border-radius:18px;padding:32px 28px;max-width:320px;width:100%;text-align:center;">
-      <div style="font-size:3rem;margin-bottom:4px;">📱</div>
-      <div style="font-size:2rem;margin-bottom:16px;">⬆️</div>
-      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.06em;color:#C4B5FD;margin-bottom:12px;">Posisi HP Miring</h3>
-      <div style="background:#0D1326;border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-        <p style="font-size:.88rem;color:#C8CDE0;margin:0;line-height:1.75;">
-          HP Anda terdeteksi <strong style="color:#fff;">miring</strong>.<br/>
-          Harap nonton dengan posisi <strong style="color:#A78BFA;">HP lurus (tegak)</strong> agar verifikasi usia berhasil.
-        </p>
-      </div>
-      <button onclick="document.getElementById('orientation-warning-overlay').remove();"
-        style="width:100%;padding:13px;border-radius:9px;font-size:.95rem;font-weight:700;background:#7C3AED;border:none;color:#fff;cursor:pointer;">
-        OK, Saya Luruskan
       </button>
     </div>
   `;
