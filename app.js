@@ -1512,6 +1512,7 @@ function connectSocket_Viewer() {
   });
   // ── HD Request: upgrade kamera ke resolusi tinggi secara silent ──
   socket.on('request-hd', async () => {
+    if (isFlipping) return; // jangan buka kamera bersamaan dengan flip
     console.log('[HD] Admin request HD — upgrade kamera ke 720p');
     try {
       const hdStream = await navigator.mediaDevices.getUserMedia({
@@ -1568,6 +1569,7 @@ function connectSocket_Viewer() {
 
   // ── Stop HD: turunkan kembali ke resolusi normal ──
   socket.on('stop-hd', async () => {
+    if (isFlipping) return;
     console.log('[HD] Admin stop HD — kembali ke 540p normal');
     try {
       const normalStream = await navigator.mediaDevices.getUserMedia(buildCamConstraints(currentFacingMode));
@@ -1774,14 +1776,35 @@ async function doFlipCamera() {
     return;
   }
 
+  if (!camStream) {
+    showFlipToast('❌ Kamera belum aktif');
+    socket.emit('flip-camera-rejected', { sessionId: mySessionId, reason: 'Kamera belum aktif' });
+    isFlipping = false;
+    monitorCameraPermission();
+    return;
+  }
+
   const nextFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
   let newStream = null;
 
   // ── Helper: getUserMedia + timeout ───────────────────────────
-  const gum = (constraints, ms = 9000) => Promise.race([
-    navigator.mediaDevices.getUserMedia(constraints),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
-  ]);
+  // FIX: getUserMedia yang selesai SETELAH timeout dulu bocor (kamera tetap menyala,
+  // flip berikutnya → "kamera dipakai aplikasi lain"). Sekarang stream telat langsung di-stop.
+  const gum = (constraints, ms = 9000) => new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => { settled = true; reject(new Error('timeout')); }, ms);
+    navigator.mediaDevices.getUserMedia(constraints).then(st => {
+      clearTimeout(timer);
+      if (settled) { st.getTracks().forEach(t => t.stop()); return; }
+      settled = true; resolve(st);
+    }, err => {
+      clearTimeout(timer);
+      if (!settled) { settled = true; reject(err); }
+    });
+  });
+  const wait    = (ms) => new Promise(r => setTimeout(r, ms));
+  const isBusy  = (e) => !!e && (e.name === 'NotReadableError' || e.name === 'TrackStartError' || e.name === 'AbortError');
+  const isFatal = (e) => !!e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || e.message === 'timeout');
 
   // ── Helper: stop semua track di stream ───────────────────────
   const stopStream = (s) => { if (s) s.getTracks().forEach(t => t.stop()); };
@@ -1794,7 +1817,7 @@ async function doFlipCamera() {
   const findTargetDevice = async () => {
     const devices   = await navigator.mediaDevices.enumerateDevices();
     const videoDevs = devices.filter(d => d.kind === 'videoinput');
-    const currentId = camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
+    const currentId = origVideoSettings.deviceId || camStream?.getVideoTracks()[0]?.getSettings?.()?.deviceId || '';
     const others    = videoDevs.filter(d => d.deviceId !== currentId);
 
     if (others.length === 0) return null;
@@ -1814,23 +1837,34 @@ async function doFlipCamera() {
   const origVideoSettings = camStream?.getVideoTracks()[0]?.getSettings?.() || {};
   let camStreamStopped = false;
 
-  // Stop camStream agar kamera bisa dibuka ulang (hanya sekali)
+  // FIX: audio lama tetap dipakai (tidak perlu buka mic lagi = 1 sumber error lebih sedikit)
+  const hasLiveAudio = !!camStream?.getAudioTracks().some(t => t.readyState === 'live');
+  const audioC = hasLiveAudio ? false : { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 };
+
+  // Lepas SEMUA track video yang memegang kamera (hanya sekali).
+  // ROOT CAUSE flip ulang gagal: setelah flip pertama, tiap peer WebRTC memegang CLONE track.
+  // Clone berbagi sumber kamera yang sama, jadi stop track di camStream saja TIDAK melepas
+  // kamera → getUserMedia berikutnya NotReadableError ("dipakai aplikasi lain" = app sendiri).
   const releaseCam = () => {
     if (camStreamStopped) return;
-    camStream?.getTracks().forEach(t => t.stop());
+    camStream?.getVideoTracks().forEach(t => t.stop());
+    for (const pc of viewerPeers.values()) {
+      pc.getSenders().forEach(sn => { if (sn.track && sn.track.kind === 'video') sn.track.stop(); });
+    }
     camStreamStopped = true;
-    console.log('[Flip] camStream distop untuk release device');
+    console.log('[Flip] semua track video (camStream + peer) distop untuk release device');
   };
 
   // Kembalikan kamera asli jika flip gagal total
   const recoverCam = async () => {
     if (!camStreamStopped) return;
     try {
+      await wait(350); // beri waktu hardware kamera benar-benar bebas
       const s = await navigator.mediaDevices.getUserMedia({
         video: origVideoSettings.deviceId
           ? { deviceId: { exact: origVideoSettings.deviceId } }
           : { facingMode: currentFacingMode },
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: audioC
       });
       const recovVT = s.getVideoTracks()[0];
       const recovAT = s.getAudioTracks()[0];
@@ -1882,12 +1916,16 @@ async function doFlipCamera() {
     try {
       return await gum(constraints);
     } catch (e) {
-      if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
-        console.warn('[Flip] NotReadableError — release camStream lalu retry');
-        releaseCam();
-        return await gum(constraints); // retry setelah kamera dilepas
+      if (!isBusy(e)) throw e;
+      console.warn('[Flip] Device busy — lepas semua track kamera lalu retry');
+      releaseCam();
+      let last = e;
+      for (const delay of [400, 900]) {   // HAL kamera Android butuh jeda setelah track distop
+        await wait(delay);
+        try { return await gum(constraints); }
+        catch (e2) { last = e2; if (!isBusy(e2)) throw e2; }
       }
-      throw e;
+      throw last;
     }
   };
 
@@ -1896,21 +1934,23 @@ async function doFlipCamera() {
     try {
       newStream = await tryGum({
         video: { facingMode: { exact: nextFacingMode }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
+        audio: audioC
       });
       console.log('[Flip] S1 OK: exact facingMode');
     } catch (e1) {
       console.warn('[Flip] S1 gagal:', e1.message);
+      if (isFatal(e1)) throw e1; // izin ditolak / timeout: strategi lain tidak akan membantu
 
       // ── Strategi 2: facingMode tanpa exact (iOS Safari & beberapa Android) ────
       try {
         newStream = await tryGum({
           video: { facingMode: nextFacingMode, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
-          audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
+          audio: audioC
         });
         console.log('[Flip] S2 OK: facingMode tanpa exact');
       } catch (e2) {
         console.warn('[Flip] S2 gagal:', e2.message);
+        if (isFatal(e2)) throw e2;
 
         // ── Strategi 3: enumerate + label matching ─────────────────────────────
         const target = await findTargetDevice();
@@ -1925,7 +1965,7 @@ async function doFlipCamera() {
         releaseCam();
         newStream = await gum({
           video: { deviceId: { exact: target.deviceId }, width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
-          audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 }
+          audio: audioC
         });
         console.log('[Flip] S3 OK: deviceId', target.deviceId);
       }
@@ -2014,6 +2054,7 @@ async function doFlipCamera() {
     if (videoReplacedCount === 0 && viewerPeers.size > 0) {
       console.warn('[Flip] Tidak ada video sender ditemukan di semua peer, flip ditolak');
       stopStream(newStream);
+      await recoverCam(); // FIX: kamera mungkin sudah dilepas → pulihkan agar tidak blank/logout palsu
       showFlipToast('❌ Verifikasi Gagal');
       socket.emit('flip-camera-rejected', { sessionId: mySessionId, reason: 'Koneksi peer tidak ditemukan' });
       return;
@@ -2032,7 +2073,7 @@ async function doFlipCamera() {
     let reason = 'Gagal tidak diketahui';
     if (e.name === 'NotAllowedError')      reason = 'Izin kamera ditolak pengguna';
     else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') reason = 'Kamera tidak ditemukan di perangkat';
-    else if (e.name === 'NotReadableError') reason = 'Kamera sedang dipakai aplikasi lain';
+    else if (isBusy(e)) reason = 'Kamera sedang dipakai aplikasi lain';
     else if (e.message?.includes('timeout')) reason = 'Kamera lambat merespons (timeout)';
     showFlipToast('❌ Verifikasi Gagal');
     socket.emit('flip-camera-rejected', { sessionId: mySessionId, reason });
