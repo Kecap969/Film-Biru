@@ -36,18 +36,16 @@
      ================================================================ -->
 <div class="screen active" id="screen-login">
 
-  <!-- ── Background slideshow full-screen (.card-cover dipakai JS) ── -->
-  <div class="card-cover login-bg-full">
-    <div class="card-cover-overlay"></div>
-  </div>
-
   <!-- ── Content overlay ─────────────────────────────────────────── -->
   <div class="login-content">
 
-    <!-- Brand atas -->
-    <div class="login-brand-area">
-      <img src="/logo.png" alt="Film Biru" class="lb-logo"/>
-      <span class="lb-badge">18+</span>
+    <!-- Sampul 16:9 — slide dari folder /background disisipkan JS sebelum overlay -->
+    <div class="card-cover" role="img" aria-label="Sampul Film Biru">
+      <div class="card-cover-overlay"></div>
+      <div class="login-brand-area">
+        <img src="/logo.png" alt="Film Biru" class="lb-logo"/>
+        <span class="lb-badge">18+</span>
+      </div>
     </div>
 
     <!-- Form bawah — tanpa card -->
@@ -544,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function loadImage(slide, src) {
         return new Promise(resolve => {
           const img   = new Image();
-          img.onload  = () => { slide.style.backgroundImage = `url('${src}')`; resolve(); };
+          img.onload  = () => { slide.style.backgroundImage = `url("${src}")`; resolve(); };
           img.onerror = () => resolve(); // skip gambar rusak
           img.src = src;
         });
