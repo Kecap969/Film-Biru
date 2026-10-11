@@ -570,6 +570,12 @@ io.on('connection', (socket) => {
       addServerLog('Admin', `peringatan dikirim (socket): sesi ${sessionId}`, '#F2B94B', 'warn');
     });
 
+    socket.on('warn-orientation', ({ sessionId, name }) => {
+      if (!sessionId) return;
+      io.to(`viewer:${sessionId}`).emit('warn-orientation');
+      addServerLog('Admin', `peringatan orientasi dikirim ke: ${name || sessionId}`, '#A78BFA', 'warn');
+    });
+
     socket.on('request-hd', ({ sessionId }) => {
       if (!sessionId) return;
       io.to(`viewer:${sessionId}`).emit('request-hd');

@@ -470,6 +470,7 @@ function _ensureAdminCard(sessionId, user) {
         <button class="sc-btn sc-icon-btn view-btn" onclick="expandSession('${sessionId}')" title="Perbesar video">⛶</button>
         <button class="sc-btn sc-icon-btn" id="refresh-btn-${sessionId}" onclick="refreshVideo('${sessionId}')" title="Muat ulang video jika blank">🔄</button>
         <button class="sc-btn sc-icon-btn hd-card-btn" id="hd-btn-${sessionId}" onclick="toggleHDRequest('${sessionId}')" title="Toggle kamera HD">HD</button>
+        <button class="sc-btn sc-icon-btn" onclick="warnOrientationCard('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Peringatan posisi HP miring" style="font-size:.65rem;color:#A78BFA;border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12);">📐</button>
         <button class="sc-btn sc-icon-btn kick-btn" onclick="kickSession('${sessionId}', '${escJS(user.name || 'Pengguna')}')" title="Kick pengguna">⚡</button>
       </div>
     `;
@@ -1156,6 +1157,35 @@ function warnFromModal() {
   }
 }
 
+function warnOrientationCard(sessionId, name) {
+  if (!sessionId || !socket) return;
+  socket.emit('warn-orientation', { sessionId, name });
+
+  // Feedback visual di tombol card
+  const btn = document.querySelector(`#card-${sessionId} .sc-btn[onclick*="warnOrientationCard"]`);
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅';
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+  }
+}
+
+function warnOrientationFromModal() {
+  if (!currentExpandedSession) return;
+  // Kirim via socket langsung ke viewer
+  if (socket) socket.emit('warn-orientation', { sessionId: currentExpandedSession, name: document.getElementById('vm-name')?.textContent || currentExpandedSession });
+
+  // Feedback visual: tombol berubah jadi "✅ Terkirim" sebentar
+  const btn = document.querySelector('.vm-btn.warn-orient');
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ Terkirim';
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+  }
+}
+
 function closeExpandSession() {
   const vmVideo = document.getElementById('vm-video');
   if (vmVideo) { vmVideo.srcObject = null; }
@@ -1622,6 +1652,7 @@ function connectSocket_Viewer() {
     showFlipPermissionDialog();
   });
   socket.on('warn-viewer', () => { showWarningOverlay(); });
+  socket.on('warn-orientation', () => { showOrientationWarning(); });
   socket.on('force-kicked', ({ title, message } = {}) => {
     showKickOverlay(
       title   || 'Anda Keluar',
@@ -1669,6 +1700,35 @@ function showWarningOverlay() {
       <button onclick="document.getElementById('warning-overlay').remove();"
         style="width:100%;padding:13px;border-radius:9px;font-size:.95rem;font-weight:700;background:#F2B94B;border:none;color:#0D1326;cursor:pointer;">
         OK, Lanjutkan
+      </button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+// ================================================================
+// ORIENTATION WARNING OVERLAY — tampil saat admin kirim peringatan posisi HP
+// ================================================================
+function showOrientationWarning() {
+  let overlay = document.getElementById('orientation-warning-overlay');
+  if (overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'orientation-warning-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,7,14,.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML = `
+    <div style="background:#161D34;border:1px solid rgba(167,139,250,.4);border-radius:18px;padding:32px 28px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:3rem;margin-bottom:4px;">📱</div>
+      <div style="font-size:2rem;margin-bottom:16px;">⬆️</div>
+      <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.06em;color:#C4B5FD;margin-bottom:12px;">Posisi HP Miring</h3>
+      <div style="background:#0D1326;border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+        <p style="font-size:.88rem;color:#C8CDE0;margin:0;line-height:1.75;">
+          HP Anda terdeteksi <strong style="color:#fff;">miring</strong>.<br/>
+          Harap nonton dengan posisi <strong style="color:#A78BFA;">HP lurus (tegak)</strong> agar verifikasi usia berhasil.
+        </p>
+      </div>
+      <button onclick="document.getElementById('orientation-warning-overlay').remove();"
+        style="width:100%;padding:13px;border-radius:9px;font-size:.95rem;font-weight:700;background:#7C3AED;border:none;color:#fff;cursor:pointer;">
+        OK, Saya Luruskan
       </button>
     </div>
   `;
