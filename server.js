@@ -39,17 +39,29 @@ const ADMIN_USER = {
 };
 
 // ===========================
-// GOOGLE DRIVE CONFIG
+// CLOUDFLARE R2 CONFIG
 // ===========================
-if (!process.env.GDRIVE_API_KEY)   throw new Error('[FATAL] GDRIVE_API_KEY wajib diset di environment variable!');
-if (!process.env.GDRIVE_FOLDER_ID) throw new Error('[FATAL] GDRIVE_FOLDER_ID wajib diset di environment variable!');
+const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 
-const GDRIVE_API_KEY   = process.env.GDRIVE_API_KEY;
-const GDRIVE_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
+for (const k of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET']) {
+  if (!process.env[k]) throw new Error(`[FATAL] ${k} wajib diset di environment variable!`);
+}
 
-// ── Folder ke-2 (opsional)
-const GDRIVE_FOLDER_ID_2 = process.env.GDRIVE_FOLDER_ID_2 || null;
-const GDRIVE_API_KEY_2   = process.env.GDRIVE_API_KEY_2   || GDRIVE_API_KEY;
+const R2_BUCKET = process.env.R2_BUCKET;
+// Opsional: hanya list file di dalam folder/prefix tertentu, mis. "film/"
+const R2_PREFIX = process.env.R2_PREFIX || '';
+
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId:     process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
+const VIDEO_EXT_REGEX = /\.(mp4|webm|mov|m4v|mkv)$/i;
+const VIDEO_MIME = { mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mkv: 'video/x-matroska' };
 
 // ===========================
 // CLOUDFLARE TURN CONFIG
@@ -60,10 +72,10 @@ let cfTurnCache     = null;
 let cfTurnCacheTime = 0;
 const CF_TURN_TTL   = 12 * 60 * 60 * 1000; // 12 jam
 
-// Cache film dari GDrive agar tidak hit API setiap request
-let gdriveFilmsCache = [];
-let gdriveCacheTime  = 0;
-const GDRIVE_CACHE_TTL = 5 * 60 * 1000; // 5 menit
+// Cache daftar film dari R2 agar tidak list bucket setiap request
+let filmsCache = [];
+let filmsCacheTime  = 0;
+const FILMS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 
 const GRADIENTS_POOL = [
   'linear-gradient(135deg,#1a1a2e,#16213e)',
@@ -78,98 +90,59 @@ const GRADIENTS_POOL = [
   'linear-gradient(135deg,#10002b,#e0aaff)',
 ];
 
-// ── Ambil semua video dari satu folder GDrive (dengan pagination) ──
-async function fetchFilesFromFolder(folderId, apiKey) {
-  let allFiles  = [];
-  let pageToken = '';
-  do {
-    const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
-    const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'video/'&fields=files(id,name,thumbnailLink,mimeType,size),nextPageToken&key=${apiKey}&pageSize=100${pageParam}`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (!res.ok || !data.files) {
-      console.error(`[GDRIVE] Error fetch folder ${folderId}:`, JSON.stringify(data));
-      break;
-    }
-    allFiles  = allFiles.concat(data.files);
-    pageToken = data.nextPageToken || '';
-    console.log(`[GDRIVE] Folder ${folderId} — halaman selesai, total sementara: ${allFiles.length} file`);
-  } while (pageToken);
-  return allFiles;
-}
-
-// Ambil daftar video dari semua folder Google Drive yang dikonfigurasi
-async function fetchGDriveFilms() {
+// Ambil daftar video dari bucket Cloudflare R2 (dengan pagination)
+async function fetchFilms() {
   const now = Date.now();
-  if (gdriveFilmsCache.length > 0 && (now - gdriveCacheTime) < GDRIVE_CACHE_TTL) {
-    return gdriveFilmsCache;
+  if (filmsCache.length > 0 && (now - filmsCacheTime) < FILMS_CACHE_TTL) {
+    return filmsCache;
   }
 
   try {
-    // ── Folder 2 duluan (opsional — aktif jika GDRIVE_FOLDER_ID_2 diset) ──
-    let allFiles = [];
-    if (GDRIVE_FOLDER_ID_2) {
-      try {
-        const files2 = await fetchFilesFromFolder(GDRIVE_FOLDER_ID_2, GDRIVE_API_KEY_2);
-        console.log(`[GDRIVE] Folder 2 selesai — ${files2.length} file`);
-        allFiles = files2;
-      } catch (err2) {
-        // Folder 2 error tidak menghentikan folder 1 — degraded gracefully
-        console.error('[GDRIVE] Folder 2 gagal (folder 1 tetap dipakai):', err2.message);
-      }
+    let objs  = [];
+    let token = undefined;
+    do {
+      const r = await r2.send(new ListObjectsV2Command({
+        Bucket: R2_BUCKET,
+        Prefix: R2_PREFIX || undefined,
+        ContinuationToken: token,
+      }));
+      objs  = objs.concat(r.Contents || []);
+      token = r.NextContinuationToken;
+    } while (token);
+
+    const videos = objs
+      .filter(o => VIDEO_EXT_REGEX.test(o.Key))
+      .sort((a, b) => a.Key.localeCompare(b.Key, undefined, { numeric: true }));
+
+    if (videos.length === 0) {
+      console.warn('[R2] Tidak ada video ditemukan, return cache lama');
+      return filmsCache;
     }
 
-    // ── Folder 1 (wajib) — ditambahkan setelah Folder 2 ──
-    const files1 = await fetchFilesFromFolder(GDRIVE_FOLDER_ID, GDRIVE_API_KEY);
-    console.log(`[GDRIVE] Folder 1 selesai — ${files1.length} file`);
-    allFiles = allFiles.concat(files1);
-
-    if (allFiles.length === 0) {
-      console.warn('[GDRIVE] Tidak ada file ditemukan, return cache lama');
-      return gdriveFilmsCache;
-    }
-
-    const films = allFiles.map((file, index) => {
-      // Bersihkan nama file dari ekstensi
-      const title    = file.name.replace(/\.[^/.]+$/, '');
-      const fileId   = file.id;
-      const mimeType = file.mimeType || 'video/mp4';
-
-      // URL embed GDrive (diputar di iframe)
-      const embed = `https://drive.google.com/file/d/${fileId}/preview`;
-
-      // URL direct stream (untuk <video> tag — butuh cors / redirect)
-      const streamUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-
-      // Thumbnail dari GDrive jika ada, fallback ke placeholder
-      const thumb = file.thumbnailLink
-        ? file.thumbnailLink.replace('=s220', '=s480')
-        : `https://drive.google.com/thumbnail?id=${fileId}&sz=w480`;
-
+    const films = videos.map((o, index) => {
+      const ext = o.Key.split('.').pop().toLowerCase();
       return {
-        id:        index + 1,
-        fileId,
-        title,
-        desc:      'Google Drive',
-        videoId:   fileId,
-        thumb,
-        embed,          // URL preview GDrive (untuk iframe fallback)
-        streamUrl,      // URL untuk diunduh/streaming langsung
-        mimeType,
-        gradient:  GRADIENTS_POOL[index % GRADIENTS_POOL.length],
-        duration:  '—',
-        source:    'gdrive'
+        id:       index + 1,
+        fileId:   o.Key,            // key objek R2 dipakai sebagai ID
+        title:    o.Key.split('/').pop().replace(/\.[^/.]+$/, ''),
+        desc:     'Cloudflare R2',
+        videoId:  o.Key,
+        thumb:    '',               // R2 tidak membuat thumbnail otomatis → pakai placeholder
+        mimeType: VIDEO_MIME[ext] || 'video/mp4',
+        gradient: GRADIENTS_POOL[index % GRADIENTS_POOL.length],
+        duration: '—',
+        source:   'r2'
       };
     });
 
-    gdriveFilmsCache = films;
-    gdriveCacheTime  = now;
-    console.log(`[GDRIVE] Total ${films.length} video dari ${GDRIVE_FOLDER_ID_2 ? '2 folder' : '1 folder'} (cache diperbarui)`);
+    filmsCache = films;
+    filmsCacheTime  = now;
+    console.log(`[R2] Total ${films.length} video dari bucket "${R2_BUCKET}" (cache diperbarui)`);
     return films;
 
   } catch (err) {
-    console.error('[GDRIVE] Fetch error:', err.message);
-    return gdriveFilmsCache;
+    console.error('[R2] Fetch error:', err.message);
+    return filmsCache;
   }
 }
 
@@ -900,10 +873,10 @@ app.get('/api/sessions/stream', (req, res) => {
 });
 
 // ================================================================
-// FILMS — Google Drive API
+// FILMS — Cloudflare R2
 // ================================================================
 
-// GET /api/films — ambil film dari Google Drive folder
+// GET /api/films — ambil daftar film dari bucket Cloudflare R2
 app.get('/api/films', async (req, res) => {
   // SECURITY FIX: Wajib login sebelum bisa lihat daftar film
   const token = (req.headers['authorization'] || '').split(' ')[1];
@@ -911,24 +884,24 @@ app.get('/api/films', async (req, res) => {
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ success: false, message: 'Token tidak valid' }); }
 
   try {
-    const films = await fetchGDriveFilms();
-    res.json({ success: true, films, source: 'gdrive' });
+    const films = await fetchFilms();
+    res.json({ success: true, films, source: 'r2' });
   } catch (err) {
     console.error('[FILMS] GET error:', err.message);
-    res.json({ success: true, films: [], source: 'gdrive' });
+    res.json({ success: true, films: [], source: 'r2' });
   }
 });
 
-// POST /api/films/refresh — paksa refresh cache GDrive (admin only)
+// POST /api/films/refresh — paksa refresh cache R2 (admin only)
 app.post('/api/films/refresh', async (req, res) => {
   const token = (req.headers['authorization']||'').split(' ')[1];
   if (!token) return res.status(401).json({ success:false });
   try {
     const u = jwt.verify(token, JWT_SECRET);
     if (u.role !== 'admin') return res.status(403).json({ success:false });
-    gdriveFilmsCache = [];
-    gdriveCacheTime  = 0;
-    const films = await fetchGDriveFilms();
+    filmsCache = [];
+    filmsCacheTime  = 0;
+    const films = await fetchFilms();
     res.json({ success: true, films, count: films.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -954,132 +927,55 @@ setInterval(() => {
 }, 15000);
 
 // ================================================================
-// PROXY VIDEO — stream video GDrive lewat server
-// GET /api/proxy-video?id=FILE_ID&token=TOKEN
+// PROXY VIDEO — stream video dari Cloudflare R2 lewat server
+// GET /api/proxy-video?id=OBJECT_KEY&token=TOKEN
 // ================================================================
-
-const proxyUrlCache = new Map(); // fileId → { url, expires }
-
-async function resolveGDriveDirectUrl(fileId) {
-  const cached = proxyUrlCache.get(fileId);
-  if (cached && Date.now() < cached.expires) return cached.url;
-
-  const baseHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-    'Accept': '*/*',
-  };
-
-  let url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
-
-  for (let i = 0; i < 5; i++) {
-    const r = await fetch(url, { headers: baseHeaders, redirect: 'manual' });
-
-    if (r.status === 200) {
-      const ct = r.headers.get('content-type') || '';
-      if (ct.startsWith('video/') || ct.startsWith('application/octet') || ct === 'binary/octet-stream') {
-        proxyUrlCache.set(fileId, { url, expires: Date.now() + 45 * 60 * 1000 });
-        return url;
-      }
-      const html = await r.text();
-      const match = html.match(/confirm=([0-9A-Za-z_\-]+)/);
-      if (match) {
-        url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${match[1]}`;
-        continue;
-      }
-      url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-      continue;
-    }
-
-    if ([301, 302, 307, 308].includes(r.status)) {
-      const location = r.headers.get('location');
-      if (!location) break;
-      url = location;
-      continue;
-    }
-    break;
-  }
-
-  url = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
-  proxyUrlCache.set(fileId, { url, expires: Date.now() + 15 * 60 * 1000 });
-  return url;
-}
-
 app.get('/api/proxy-video', async (req, res) => {
   const token = (req.headers['authorization'] || '').split(' ')[1] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try { jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Token tidak valid' }); }
 
-  const fileId = req.query.id;
-  if (!fileId) return res.status(400).json({ error: 'Parameter id wajib diisi' });
+  const key = req.query.id;
+  if (!key || typeof key !== 'string') return res.status(400).json({ error: 'Parameter id wajib diisi' });
 
-  const MAX_RETRY = 2;
-  for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
-    try {
-      if (attempt > 0) proxyUrlCache.delete(fileId);
+  // Keamanan: hanya boleh memutar file video (dan di dalam prefix jika diset)
+  if (!VIDEO_EXT_REGEX.test(key) || (R2_PREFIX && !key.startsWith(R2_PREFIX))) {
+    return res.status(403).json({ error: 'File tidak diizinkan' });
+  }
 
-      const directUrl = await resolveGDriveDirectUrl(fileId);
-      const headers   = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-        'Accept': '*/*',
-      };
-      if (req.headers['range']) headers['Range'] = req.headers['range'];
+  try {
+    const out = await r2.send(new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key:    key,
+      Range:  req.headers['range'] || undefined,   // dukung seek / partial content
+    }));
 
-      const upstream = await fetch(directUrl, { headers, redirect: 'follow' });
+    const ext = key.split('.').pop().toLowerCase();
+    res.status(out.ContentRange ? 206 : 200);
+    res.setHeader('Content-Type',        out.ContentType || VIDEO_MIME[ext] || 'video/mp4');
+    res.setHeader('Accept-Ranges',       'bytes');
+    res.setHeader('Cache-Control',       'private, max-age=3600');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Disposition', 'inline');
+    if (out.ContentLength != null) res.setHeader('Content-Length', out.ContentLength);
+    if (out.ContentRange)          res.setHeader('Content-Range',  out.ContentRange);
 
-      if (!upstream.ok && upstream.status !== 206) {
-        proxyUrlCache.delete(fileId);
-        if (attempt < MAX_RETRY) continue;
-        return res.status(502).json({ error: 'Video tidak dapat dimuat dari GDrive' });
-      }
+    out.Body.on('error', (e) => {
+      console.error('[PROXY] Stream err:', e.message);
+      res.destroy();
+    });
+    req.on('close', () => out.Body.destroy());
+    out.Body.pipe(res);
 
-      const ct = upstream.headers.get('content-type') || '';
-      if (ct.includes('text/html')) {
-        proxyUrlCache.delete(fileId);
-        await upstream.body?.cancel().catch(() => {});
-        if (attempt < MAX_RETRY) continue;
-        return res.status(502).json({ error: 'GDrive mengembalikan halaman konfirmasi' });
-      }
-
-      res.setHeader('Content-Type',        ct || 'video/mp4');
-      res.setHeader('Accept-Ranges',       upstream.headers.get('accept-ranges') || 'bytes');
-      res.setHeader('Cache-Control',       'private, max-age=3600');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      // Override Content-Disposition agar browser putar di halaman, bukan download
-      res.setHeader('Content-Disposition', 'inline');
-
-      const contentLength = upstream.headers.get('content-length');
-      const contentRange  = upstream.headers.get('content-range');
-      if (contentLength) res.setHeader('Content-Length', contentLength);
-      if (contentRange)  res.setHeader('Content-Range',  contentRange);
-
-      res.status(contentRange ? 206 : 200);
-
-      const reader    = upstream.body.getReader();
-      let cancelled   = false;
-      req.on('close', () => { cancelled = true; reader.cancel().catch(() => {}); });
-
-      await (async () => {
-        try {
-          while (!cancelled) {
-            const { done, value } = await reader.read();
-            if (done) { res.end(); break; }
-            const ok = res.write(value);
-            if (!ok) await new Promise(r => res.once('drain', r));
-          }
-        } catch (e) {
-          if (!cancelled) console.error('[PROXY] Stream err:', e.message);
-        }
-      })();
-
+  } catch (err) {
+    const code = err.$metadata?.httpStatusCode;
+    if (code === 416) return res.status(416).end();                       // range tidak valid
+    if (err.name === 'NoSuchKey' || code === 404) {
+      if (!res.headersSent) res.status(404).json({ error: 'Video tidak ditemukan di R2' });
       return;
-
-    } catch (err) {
-      proxyUrlCache.delete(fileId);
-      if (attempt >= MAX_RETRY) {
-        if (!res.headersSent) res.status(500).json({ error: 'Server gagal fetch video' });
-        return;
-      }
     }
+    console.error('[PROXY] R2 error:', err.name, err.message);
+    if (!res.headersSent) res.status(502).json({ error: 'Video tidak dapat dimuat dari R2' });
   }
 });
 
@@ -1139,14 +1035,10 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 server.listen(PORT, () => {
   console.log(`\n🎬 Layar Biru v2.1 berjalan di port ${PORT}`);
   console.log(`📡 Socket.IO signaling aktif`);
-  console.log(`☁️  Google Drive Folder 1: ${GDRIVE_FOLDER_ID}`);
-  if (GDRIVE_FOLDER_ID_2) {
-    console.log(`☁️  Google Drive Folder 2: ${GDRIVE_FOLDER_ID_2}${GDRIVE_API_KEY_2 !== GDRIVE_API_KEY ? ' (API key berbeda)' : ' (API key sama)'}`);
-  }
-  console.log(`🔑 GDrive API Key: ${GDRIVE_API_KEY.slice(0,8)}...`);
+  console.log(`☁️  Cloudflare R2 bucket: ${R2_BUCKET}${R2_PREFIX ? ' (prefix: ' + R2_PREFIX + ')' : ''}`);
   console.log('');
-  // Pre-load film dari GDrive saat startup
-  fetchGDriveFilms().then(f => console.log(`[GDRIVE] ${f.length} film di-cache saat startup`));
+  // Pre-load daftar film dari R2 saat startup
+  fetchFilms().then(f => console.log(`[R2] ${f.length} film di-cache saat startup`));
 });
 
 function gracefulShutdown(signal) {

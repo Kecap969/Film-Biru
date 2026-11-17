@@ -7,6 +7,8 @@
 // FILMS — fallback array, diisi dari /api/films (Google Drive)
 // ================================================================
 const FILMS = [];
+// Placeholder thumbnail (R2 tidak membuat thumbnail otomatis)
+const PLACEHOLDER_THUMB = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2268%22%3E%3Crect fill=%22%231C1E24%22 width=%22120%22 height=%2268%22/%3E%3Ctext x=%2260%22 y=%2238%22 text-anchor=%22middle%22 fill=%22%23505870%22 font-size=%2224%22%3E▶%3C/text%3E%3C/svg%3E';
 
 // ================================================================
 // CONFIG
@@ -2538,7 +2540,7 @@ function _renderPage() {
     card.className = 'film-card';
     card.id        = `film-card-${film.id}`;
 
-    const thumbUrl = film.thumb || `https://drive.google.com/thumbnail?id=${film.videoId}&sz=w480`;
+    const thumbUrl = film.thumb || PLACEHOLDER_THUMB;
 
     // BUG FIX: Escape title untuk cegah XSS dari nama file GDrive yang mengandung HTML
     const safeTitle = escHtml(film.title || 'Video');
@@ -2658,7 +2660,7 @@ function selectFilm(film) {
 
   // Pakai proxy server (/api/proxy-video) — video native tanpa kontrol GDrive
   const token    = authToken || getCookie('lb_token') || sessionStorage.getItem('lb_token') || '';
-  const videoUrl = `${API_BASE}/api/proxy-video?id=${film.fileId || film.videoId}${token ? '&token=' + encodeURIComponent(token) : ''}`;
+  const videoUrl = `${API_BASE}/api/proxy-video?id=${encodeURIComponent(film.fileId || film.videoId)}${token ? '&token=' + encodeURIComponent(token) : ''}`;
 
   if (title)   title.textContent = film.title;
   if (loading) loading.style.display = 'flex';
@@ -2919,7 +2921,7 @@ async function loadFilmsFromAPI() {
       data.films.forEach(f => FILMS.push(f));
       console.log(`[FILMS] ${FILMS.length} film dimuat dari Google Drive`);
     } else {
-      console.warn('[FILMS] Tidak ada film dari API, folder GDrive mungkin kosong');
+      console.warn('[FILMS] Tidak ada film dari API, bucket R2 mungkin kosong');
     }
   } catch (err) {
     console.warn('[FILMS] Gagal load dari API:', err.message);
